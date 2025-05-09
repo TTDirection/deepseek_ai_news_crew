@@ -27,12 +27,11 @@ analysis_task:
     1. 按照重要性和影响力对新闻进行排序
     2. 为每条新闻撰写详细摘要，不少于150字，包含核心要点、技术细节和潜在影响
     3. 使用markdown格式，保证报告结构清晰、易读
-    4. 标题必须使用今天的日期（${today_date}），格式为"【AI日报】${today_date} AI热点新闻"
-    5. 根据环境变量设置决定报告格式：
-       - 来源信息显示：${include_source}
-       - 链接信息显示：${include_link}
-    6. 所有内容必须是最近24小时内（从${time_range_start}到${time_range_end}）的新闻
+    4. 标题必须使用今天的日期，格式为"【AI日报】YYYY-MM-DD AI热点新闻"
+    5. 根据环境变量设置决定报告格式
+    6. 所有内容必须是最近24小时内的新闻
+    7. 重要：不要在输出内容的开头添加```markdown，也不要在结尾添加```标记
   expected_output: >
-    一份结构化的中文报告，包含10条重要AI新闻的详细摘要，格式为Markdown，使用当前日期作为标题。
+    一份结构化的中文报告，包含10条重要AI新闻的详细摘要，格式为Markdown（但不包含```标记），使用当前日期作为标题。
   agent: analyst
   output_file: ai_news_report.md 

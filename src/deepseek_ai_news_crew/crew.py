@@ -1,15 +1,13 @@
 from crewai import Agent, Crew, Process, Task
-from crewai.project import CrewBase, agent, crew, task
+from crewai.project import CrewBase, agent, crew, task, before_kickoff, after_kickoff
 from crewai.agents.agent_builder.base_agent import BaseAgent
 from typing import List
 from langchain_openai import ChatOpenAI
 from .tools.custom_tool import NewsSearchTool, NewsFilterTool
+from .tools.wechat_tool import WechatMessageTool, MarkdownCleanerTool
 import os
 from dotenv import load_dotenv
 from datetime import datetime, timedelta
-# If you want to run a snippet of code before or after the crew starts,
-# you can use the @before_kickoff and @after_kickoff decorators
-# https://docs.crewai.com/concepts/crews#example-crew-class-with-decorators
 
 @CrewBase
 class DeepseekAiNewsCrew():
@@ -33,6 +31,14 @@ class DeepseekAiNewsCrew():
         include_link = os.getenv("INCLUDE_LINK", "true")
         os.environ["INCLUDE_SOURCE"] = include_source
         os.environ["INCLUDE_LINK"] = include_link
+        
+        # 设置是否发送到企业微信
+        include_wechat = os.getenv("INCLUDE_WECHAT", "false")
+        os.environ["INCLUDE_WECHAT"] = include_wechat
+        
+        # 企业微信webhook key
+        wechat_webhook_key = os.getenv("WECHAT_WEBHOOK_KEY", "8b529e9f-1dc9-4b5c-a60a-1b8d3298acdd")
+        os.environ["WECHAT_WEBHOOK_KEY"] = wechat_webhook_key
         
         # 设置是否验证URL，默认不验证以提高速度
         validate_urls = os.getenv("VALIDATE_URLS", "false")
@@ -70,17 +76,12 @@ class DeepseekAiNewsCrew():
    - 若INCLUDE_SOURCE=false，则不要在报告中包含来源信息
    - 若INCLUDE_LINK=false，则不要在报告中包含链接信息
    - 当这些信息被禁用时，报告格式应相应调整，确保可读性
+6. 不要在输出的开头和结尾添加```markdown和```标记
 
 所有回答和生成内容必须使用简体中文，语言自然、流畅，符合中文表达习惯。"""
             }
         )
     
-    # Learn more about YAML configuration files here:
-    # Agents: https://docs.crewai.com/concepts/agents#yaml-configuration-recommended
-    # Tasks: https://docs.crewai.com/concepts/tasks#yaml-configuration-recommended
-    
-    # If you would like to add tools to your agents, you can learn more about it here:
-    # https://docs.crewai.com/concepts/agents#agent-tools
     @agent
     def researcher(self) -> Agent:
         return Agent(
@@ -94,13 +95,11 @@ class DeepseekAiNewsCrew():
     def analyst(self) -> Agent:
         return Agent(
             config=self.agents_config['analyst'], # type: ignore[index]
+            tools=[MarkdownCleanerTool()],
             llm=self.analyst_llm,
             verbose=True
         )
 
-    # To learn more about structured task outputs,
-    # task dependencies, and task callbacks, check out the documentation:
-    # https://docs.crewai.com/concepts/tasks#overview-of-a-task
     @task
     def research_task(self) -> Task:
         return Task(
@@ -113,6 +112,35 @@ class DeepseekAiNewsCrew():
             config=self.tasks_config['analysis_task'], # type: ignore[index]
             output_file='ai_news_report.md'
         )
+    
+    @after_kickoff
+    def send_to_wechat(self, result):
+        """
+        在执行完所有任务后，根据配置将结果发送到企业微信
+        
+        Args:
+            result: Crew执行的结果
+        """
+        include_wechat = os.getenv("INCLUDE_WECHAT", "false").lower() == "true"
+        if include_wechat:
+            try:
+                # 读取生成的AI日报
+                report_path = "ai_news_report.md"
+                if os.path.exists(report_path):
+                    with open(report_path, "r", encoding="utf-8") as f:
+                        content = f.read()
+                    
+                    # 使用企业微信工具发送
+                    wechat_tool = WechatMessageTool()
+                    result = wechat_tool._run(content=content)
+                    print(f"企业微信发送结果: {result}")
+                else:
+                    print(f"无法找到报告文件: {report_path}")
+            except Exception as e:
+                print(f"发送到企业微信时发生错误: {str(e)}")
+        
+        # 返回原始结果
+        return result
 
     @crew
     def crew(self) -> Crew:
