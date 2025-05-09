@@ -322,10 +322,12 @@ class NewsFilterTool(BaseTool):
                 if not should_block:
                     # 根据参数决定是否包含来源和链接
                     if not include_source and "来源" in news:
-                        news["来源"] = "" if include_link else "已省略"
+                        # 完全删除来源字段而不是设为空字符串
+                        del news["来源"]
                     
                     if not include_link and "链接" in news:
-                        news["链接"] = "" if include_source else "已省略"
+                        # 完全删除链接字段而不是设为空字符串
+                        del news["链接"]
                     
                     filtered_news.append(news)
             

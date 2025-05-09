@@ -6,6 +6,7 @@ from langchain_openai import ChatOpenAI
 from .tools.custom_tool import NewsSearchTool, NewsFilterTool
 import os
 from dotenv import load_dotenv
+from datetime import datetime, timedelta
 # If you want to run a snippet of code before or after the crew starts,
 # you can use the @before_kickoff and @after_kickoff decorators
 # https://docs.crewai.com/concepts/crews#example-crew-class-with-decorators
@@ -58,7 +59,19 @@ class DeepseekAiNewsCrew():
             api_key=os.getenv("DEEPSEEK_API_KEY"),
             temperature=0.7,
             model_kwargs={
-                "system_message": "你是一个以简体中文进行对话和输出的 AI 新闻分析师。你擅长提取关键信息，生成简洁清晰的摘要，并按重要性排序。所有回答和生成内容必须使用简体中文，语言自然、流畅，符合中文表达习惯。"
+                "system_message": """你是一个以简体中文进行对话和输出的 AI 新闻分析师。
+
+你的任务是为每日AI热点新闻生成高质量的摘要报告，要求如下：
+1. 确保报告标题使用当前日期（而非过去日期），格式为"【AI日报】YYYY-MM-DD AI热点新闻"
+2. 只关注过去24小时内（昨天早上9点到今天早上9点）的AI新闻
+3. 为每条新闻生成详细的摘要分析，不少于150字，包含核心要点、技术细节和潜在影响
+4. 摘要应该全面、客观，即使原文摘要简短，也要基于上下文和你的知识进行合理扩展
+5. 严格遵循环境变量设置：
+   - 若INCLUDE_SOURCE=false，则不要在报告中包含来源信息
+   - 若INCLUDE_LINK=false，则不要在报告中包含链接信息
+   - 当这些信息被禁用时，报告格式应相应调整，确保可读性
+
+所有回答和生成内容必须使用简体中文，语言自然、流畅，符合中文表达习惯。"""
             }
         )
     
@@ -104,8 +117,11 @@ class DeepseekAiNewsCrew():
     @crew
     def crew(self) -> Crew:
         """Creates the DeepseekAiNewsCrew crew"""
-        # To learn how to add knowledge sources to your crew, check out the documentation:
-        # https://docs.crewai.com/concepts/knowledge#what-is-knowledge
+        # 获取当前日期和昨天日期用于时间范围
+        today = datetime.now()
+        yesterday = today - timedelta(days=1)
+        yesterday_9am = yesterday.replace(hour=9, minute=0, second=0, microsecond=0)
+        today_9am = today.replace(hour=9, minute=0, second=0, microsecond=0)
 
         # 定义AI相关关键词列表
         ai_keywords = [
@@ -130,7 +146,12 @@ class DeepseekAiNewsCrew():
             verbose=True,
             inputs={
                 "ai_keywords": ai_keywords,
-                "block_keywords": block_keywords
+                "block_keywords": block_keywords,
+                "today_date": today.strftime("%Y-%m-%d"),
+                "yesterday_date": yesterday.strftime("%Y-%m-%d"),
+                "time_range_start": yesterday_9am.strftime("%Y-%m-%d %H:%M:%S"),
+                "time_range_end": today_9am.strftime("%Y-%m-%d %H:%M:%S"),
+                "include_source": os.getenv("INCLUDE_SOURCE", "true").lower() == "true",
+                "include_link": os.getenv("INCLUDE_LINK", "true").lower() == "true"
             }
-            # process=Process.hierarchical, # In case you wanna use that instead https://docs.crewai.com/how-to/Hierarchical/
         )
