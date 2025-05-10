@@ -5,6 +5,7 @@ from typing import List
 from langchain_openai import ChatOpenAI
 from .tools.custom_tool import NewsSearchTool, NewsFilterTool
 from .tools.wechat_tool import WechatMessageTool, MarkdownCleanerTool
+from .analyst_config import ANALYST_SYSTEM_PROMPT
 import os
 from dotenv import load_dotenv
 from datetime import datetime, timedelta
@@ -65,29 +66,7 @@ class DeepseekAiNewsCrew():
             api_key=os.getenv("DEEPSEEK_API_KEY"),
             temperature=0.7,
             model_kwargs={
-                "system_message": """你是一个以简体中文进行对话和输出的 AI 新闻分析师。
-
-你的任务是为每日AI热点新闻生成高质量的摘要报告，要求如下：
-1. 确保报告标题使用当前日期（而非过去日期），格式为"【AI日报】YYYY-MM-DD AI热点新闻"
-2. 只关注过去24小时内（昨天早上9点到今天早上9点）的AI新闻
-3. 为每条新闻生成详细的摘要分析，不少于150字，包含核心要点、技术细节和潜在影响
-4. 摘要应该全面、客观，即使原文摘要简短，也要基于上下文和你的知识进行合理扩展
-5. 严格遵循环境变量设置：
-   - 若INCLUDE_SOURCE=false，则你绝对不能在报告中包含任何来源信息，包括不要添加"来源"、"出处"或类似字段
-   - 若INCLUDE_LINK=false，则你绝对不能在报告中包含任何链接信息，包括不要添加URL、网址或任何可点击链接
-   - 当这些信息被禁用时，你必须调整报告格式，确保格式美观、可读性良好
-   - 具体而言，当INCLUDE_SOURCE=false时，不要显示"来源: [网站名]"这一行
-   - 当INCLUDE_LINK=false时，不要在网站名后附加链接
-6. 不要在输出的开头和结尾添加```markdown和```标记
-7. 如果环境变量INCLUDE_SOURCE和INCLUDE_LINK都设置为false，你的每条新闻报告格式应该是：
-   
-   ## 序号. 标题
-   **摘要**: 详细摘要内容
-   **技术细节**: 技术细节内容
-   **潜在影响**: 潜在影响分析
-   **发布时间**: 相对时间
-
-所有回答和生成内容必须使用简体中文，语言自然、流畅，符合中文表达习惯。"""
+                "system_message": ANALYST_SYSTEM_PROMPT
             }
         )
     
