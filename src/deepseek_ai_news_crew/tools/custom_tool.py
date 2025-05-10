@@ -26,12 +26,22 @@ class NewsSearchTool(BaseTool):
         try:
             # 从环境变量中读取搜索API配置
             api_key = os.getenv("SEARCH_API_KEY")
+            # 尝试从SERPER_API_KEY获取（如果SEARCH_API_KEY不存在且使用的是serper）
+            search_api_type = os.getenv("SEARCH_API_TYPE", "google").lower()  # 默认使用Google API
+            if not api_key and search_api_type == "serper":
+                api_key = os.getenv("SERPER_API_KEY")
+            
             cx = os.getenv("SEARCH_ENGINE_ID")
-            search_api_type = os.getenv("SEARCH_API_TYPE", "google")  # 默认使用Google API
             
-            if not api_key or not cx:
-                return "搜索API配置不完整，请设置SEARCH_API_KEY和SEARCH_ENGINE_ID环境变量。"
-            
+            # 根据API类型决定是否需要检查search_engine_id
+            if search_api_type == "google":
+                if not api_key or not cx:
+                    return "搜索API配置不完整，使用Google搜索时请设置SEARCH_API_KEY和SEARCH_ENGINE_ID环境变量。"
+            else:
+                # Bing和Serper API只需要API_KEY
+                if not api_key:
+                    return f"搜索API配置不完整，使用{search_api_type}搜索时请设置SEARCH_API_KEY环境变量。"
+                             
             # 计算时间范围
             if not time_range:
                 # 默认为过去24小时
