@@ -3,7 +3,7 @@ from crewai.project import CrewBase, agent, crew, task, before_kickoff, after_ki
 from crewai.agents.agent_builder.base_agent import BaseAgent
 from typing import List
 from langchain_openai import ChatOpenAI
-from .tools.custom_tool import NewsSearchTool, NewsFilterTool
+from .tools.custom_tool import NewsSearchTool, NewsFilterTool, DiversityFilterTool
 from .tools.wechat_tool import WechatMessageTool, MarkdownCleanerTool
 from .analyst_config import ANALYST_SYSTEM_PROMPT
 import os
@@ -55,7 +55,7 @@ class DeepseekAiNewsCrew():
             api_key=os.getenv("DEEPSEEK_API_KEY"),
             temperature=0.3,
             model_kwargs={
-                "system_message": "你是一个专注于AI技术新闻的研究员，擅长收集最新的AI相关新闻。你的回答简洁、准确、全面，并以简体中文输出。"
+                "system_message": "你是一个专注于AI技术新闻的研究员，擅长收集最新的AI相关新闻。你的回答简洁、准确、全面，并以简体中文输出。特别注意收集来源多样化的新闻，避免过多关注同一公司或主题，如OpenAI或微软。应当尽量覆盖多个不同的AI公司、技术领域和研究方向，确保信息的广泛性和多样性。如果发现多篇关于同一主题的新闻，只选择最重要或最新的一篇。"
             }
         )
         
@@ -74,7 +74,7 @@ class DeepseekAiNewsCrew():
     def researcher(self) -> Agent:
         return Agent(
             config=self.agents_config['researcher'], # type: ignore[index]
-            tools=[NewsSearchTool(), NewsFilterTool()],
+            tools=[NewsSearchTool(), NewsFilterTool(), DiversityFilterTool()],
             llm=self.researcher_llm,
             verbose=True
         )

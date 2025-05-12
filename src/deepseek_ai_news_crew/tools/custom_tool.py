@@ -348,3 +348,75 @@ class NewsFilterTool(BaseTool):
             
         except Exception as e:
             return f"过滤过程中发生错误: {str(e)}"
+
+
+class DiversityFilterInput(BaseModel):
+    """Input schema for DiversityFilterTool."""
+    news_list: str = Field(..., description="JSON格式的新闻列表")
+    max_per_company: int = Field(3, description="每个公司或主题的最大新闻数量")
+    
+class DiversityFilterTool(BaseTool):
+    name: str = "新闻多样性过滤工具"
+    description: str = (
+        "使用此工具过滤新闻列表，确保每个公司或主题最多只有指定数量的新闻，"
+        "提高新闻来源的多样性。"
+    )
+    args_schema: Type[BaseModel] = DiversityFilterInput
+    
+    def _run(self, news_list: str, max_per_company: int = 3) -> str:
+        try:
+            # 解析新闻列表
+            news_items = json.loads(news_list)
+            
+            # 主要公司和技术关键词，用于检测新闻主题
+            companies = [
+                "openai", "microsoft", "微软", "anthropic", "google", "谷歌", "meta", "facebook", 
+                "amazon", "亚马逊", "nvidia", "英伟达", "apple", "苹果", "deepseek", "百度", "阿里", 
+                "腾讯", "华为", "讯飞", "智谱", "文心一言", "豆包", "通义千问", "gemini", "gpt", "llama", 
+                "claude", "mistral"
+            ]
+            
+            # 用于存储每个关键词对应的新闻
+            company_news = {company: [] for company in companies}
+            other_news = []  # 存储不属于主要公司的新闻
+            
+            # 将新闻分类
+            for news in news_items:
+                title = news.get("标题", "").lower()
+                summary = news.get("摘要", "").lower() if "摘要" in news else ""
+                content = title + " " + summary
+                
+                # 检查新闻属于哪个公司/技术
+                matched = False
+                for company in companies:
+                    if company.lower() in content:
+                        company_news[company].append(news)
+                        matched = True
+                        break
+                
+                # 如果不属于任何主要公司，放入其他新闻列表
+                if not matched:
+                    other_news.append(news)
+            
+            # 为每个公司选择最重要/最新的新闻
+            diverse_news = []
+            
+            # 首先加入其他新闻
+            diverse_news.extend(other_news)
+            
+            # 然后按照每个公司添加有限数量的新闻
+            for company, news_list in company_news.items():
+                # 根据新闻的重要性或日期排序
+                sorted_news = sorted(news_list, key=lambda x: x.get("发布时间", "未知"), reverse=True)
+                diverse_news.extend(sorted_news[:max_per_company])
+            
+            # 根据重要性再次排序
+            final_news = sorted(diverse_news, key=lambda x: len(x.get("摘要", "")), reverse=True)
+            
+            if not final_news:
+                return "过滤后没有剩余新闻。"
+            
+            return json.dumps(final_news, ensure_ascii=False, indent=2)
+            
+        except Exception as e:
+            return f"多样性过滤过程中发生错误: {str(e)}"
