@@ -1,0 +1,15 @@
+INCLUDE_WECHAT设置为: false
+=== 开始运行时间: 20250513_090002 ===
+Running the Crew
++-------------------------- Crew Execution Started ---------------------------+
+|                                                                             |
+|  Crew Execution Started                                                     |
+|  Name: crew                                                                 |
+|  ID: 5ad3b8ad-5053-4525-9317-a165af945feb                                   |
+|                                                                             |
+|                                                                             |
++-----------------------------------------------------------------------------+
+
+
+=== 发生异常 ===
+'utf-8' codec can't decode byte 0xd0 in position 206: invalid continuation byte

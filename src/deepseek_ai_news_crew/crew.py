@@ -6,6 +6,7 @@ from langchain_openai import ChatOpenAI
 from .tools.custom_tool import NewsSearchTool, NewsFilterTool, DiversityFilterTool
 from .tools.wechat_tool import WechatMessageTool, MarkdownCleanerTool
 from .analyst_config import ANALYST_SYSTEM_PROMPT
+from .researcher_config import RESEARCHER_SYSTEM_PROMPT
 import os
 from dotenv import load_dotenv
 from datetime import datetime, timedelta
@@ -34,12 +35,12 @@ class DeepseekAiNewsCrew():
         os.environ["INCLUDE_LINK"] = include_link
         
         # 设置是否发送到企业微信
-        include_wechat = os.getenv("INCLUDE_WECHAT", "false")
-        os.environ["INCLUDE_WECHAT"] = include_wechat
+        self.include_wechat = os.getenv("INCLUDE_WECHAT", "false").lower() == "true"
+        #os.environ["INCLUDE_WECHAT"] = str(self.include_wechat).lower()
         
         # 企业微信webhook key
-        wechat_webhook_key = os.getenv("WECHAT_WEBHOOK_KEY", "8b529e9f-1dc9-4b5c-a60a-1b8d3298acdd")
-        os.environ["WECHAT_WEBHOOK_KEY"] = wechat_webhook_key
+        self.wechat_webhook_key = os.getenv("WECHAT_WEBHOOK_KEY", "8b529e9f-1dc9-4b5c-a60a-1b8d3298acdd")
+        os.environ["WECHAT_WEBHOOK_KEY"] = self.wechat_webhook_key
         
         # 设置是否验证URL，默认不验证以提高速度
         validate_urls = os.getenv("VALIDATE_URLS", "false")
@@ -55,7 +56,7 @@ class DeepseekAiNewsCrew():
             api_key=os.getenv("DEEPSEEK_API_KEY"),
             temperature=0.3,
             model_kwargs={
-                "system_message": "你是一个专注于AI技术新闻的研究员，擅长收集最新的AI相关新闻。你的回答简洁、准确、全面，并以简体中文输出。特别注意收集来源多样化的新闻，避免过多关注同一公司或主题，如OpenAI或微软。应当尽量覆盖多个不同的AI公司、技术领域和研究方向，确保信息的广泛性和多样性。如果发现多篇关于同一主题的新闻，只选择最重要或最新的一篇。"
+                "system_message": RESEARCHER_SYSTEM_PROMPT
             }
         )
         
@@ -104,29 +105,42 @@ class DeepseekAiNewsCrew():
     @after_kickoff
     def send_to_wechat(self, result):
         """
-        在执行完所有任务后，根据配置将结果发送到企业微信
+        在执行完所有任务后，强制将结果发送到企业微信
         
         Args:
             result: Crew执行的结果
         """
-        include_wechat = os.getenv("INCLUDE_WECHAT", "false").lower() == "true"
-        if include_wechat:
-            try:
-                # 读取生成的AI日报
-                report_path = "ai_news_report.md"
-                if os.path.exists(report_path):
-                    with open(report_path, "r", encoding="utf-8") as f:
-                        content = f.read()
-                    
-                    # 使用企业微信工具发送
-                    wechat_tool = WechatMessageTool()
-                    result = wechat_tool._run(content=content)
-                    print(f"企业微信发送结果: {result}")
-                else:
-                    print(f"无法找到报告文件: {report_path}")
-            except Exception as e:
-                print(f"发送到企业微信时发生错误: {str(e)}")
+        print("\n=== 企业微信发送流程 ===")
+        print(f"INCLUDE_WECHAT 配置: {self.include_wechat}")
+    
+        if not self.include_wechat:
+            print("INCLUDE_WECHAT 设置为 false，跳过企业微信发送")
+            print("=== 企业微信发送流程结束 ===\n")
+            return result        
         
+        try:
+            # 读取生成的AI日报
+            report_path = "ai_news_report.md"
+            print(f"尝试读取报告文件: {report_path}")
+            
+            if os.path.exists(report_path):
+                with open(report_path, "r", encoding="utf-8") as f:
+                    content = f.read()
+                print(f"成功读取报告文件，内容长度: {len(content)} 字符")
+                
+                # 使用企业微信工具发送
+                wechat_tool = WechatMessageTool()
+                print("正在发送到企业微信...")
+                result = wechat_tool._run(content=content, webhook_key=self.wechat_webhook_key)
+                print(f"企业微信发送结果: {result}")
+            else:
+                print(f"错误: 无法找到报告文件: {report_path}")
+        except Exception as e:
+            print(f"发送到企业微信时发生错误: {str(e)}")
+            import traceback
+            print(f"错误详情: {traceback.format_exc()}")
+        
+        print("=== 企业微信发送流程结束 ===\n")
         # 返回原始结果
         return result
 
@@ -138,22 +152,107 @@ class DeepseekAiNewsCrew():
         yesterday = today - timedelta(days=1)
         yesterday_9am = yesterday.replace(hour=9, minute=0, second=0, microsecond=0)
         today_9am = today.replace(hour=9, minute=0, second=0, microsecond=0)
-
-        # 定义AI相关关键词列表
-        ai_keywords = [
-            "openai", "anthropic", "gemini", "nvidia nim", "grok", "ollama", "watson",
-            "bedrock", "azure", "cerebras", "sambanova", "deepseek", "qwen", "xAI",
-            "文心一言", "豆包", "元宝",
-            "人工智能", "机器学习", "深度学习", "生成式ai", "大语言模型", "神经网络",
-            "计算机视觉", "自然语言处理", "强化学习", "多模态ai", "ai芯片",
-            "量子计算", "自动驾驶"
-        ]
+          
+        # 定义AI相关关键词列表，按类别组织
+        ai_keywords = {
+            "大模型": [
+                # 国际大模型公司
+                "openai", "chatgpt", "gpt-4", "gpt-5", "sora", "dall-e",
+                "anthropic", "claude", "claude 3",
+                "google ai", "gemini", "gemini ultra", "gemini pro",
+                "xai", "grok", "grok-1",
+                "meta ai", "llama", "llama 3",
+                "mistral ai", "mixtral",
+                # 国内大模型公司
+                "百度文心", "文心一言", "ernie",
+                "阿里通义", "通义千问", "qwen",
+                "讯飞星火", "星火认知",
+                "智谱ai", "chatglm",
+                "deepseek", "360 ai", "抖音 ai"
+            ],
+            "AI基础设施": [
+                # 国际基础设施
+                "nvidia", "nvidia h200", "blackwell", "cuda",
+                "amd ai", "intel ai", "tpu", "aws", "azure ai",
+                "databricks", "hugging face", "ollama", "replicate",
+                # 量子计算
+                "quantum ai", "quantum computing", "ibm quantum",
+                # 国内基础设施
+                "摩尔线程", "沐曦", "燧原科技", "澜起科技",
+                "智源研究院", "商汤科技"
+            ],
+            "AI应用": [
+                # 通用领域
+                "ai agent", "ai assistant", "ai coding",
+                "multimodal ai", "ai vision", "computer vision",
+                "speech recognition", "voice ai", "ai translation",
+                # 垂直领域
+                "autonomous driving", "self-driving", "robotics",
+                "ai healthcare", "ai education", "ai gaming",
+                "ai security", "ai finance", "generative ai",
+                # 新兴应用
+                "ai video", "ai music", "ai design",
+                "ai writing", "ai analytics"
+            ],
+            "AI研究": [
+                # 研究机构
+                "deepmind", "microsoft research", "google research",
+                "stanford ai", "mit ai", "berkeley ai",
+                "清华ai", "北大ai", "中科院ai",
+                # 研究领域
+                "machine learning", "deep learning", "neural networks",
+                "reinforcement learning", "nlp", "computer vision",
+                "ai ethics", "ai safety", "ai alignment",
+                "multimodal learning", "few-shot learning",
+                "ai research", "ai paper", "ai breakthrough"
+            ]
+        }
 
         # 定义屏蔽关键词列表
         block_keywords = [
-            "色情", "成人", "裸体", "性", "政治", "政府", "选举", "抗议", "违法", "毒品",
-            "赌博", "邪教", "宗教", "恐怖主义", "暴力", "战争"
+            "色情", "成人", "裸体", "性", "政治", "政府", "选举", "抗议", 
+            "违法", "毒品", "赌博", "邪教", "宗教", "恐怖主义", "暴力", 
+            "战争", "谣言", "虚假信息"
         ]
+
+        # 新闻评分标准
+        news_scoring = {
+            "importance_weight": 0.35,    # 重要性权重
+            "relevance_weight": 0.35,     # 相关性权重
+            "geo_balance_weight": 0.30,   # 地域平衡权重
+            "min_score": 7.5,            # 最低分数要求（满分10分）
+            "international_ratio": 0.55,  # 国际新闻比例要求
+            "scoring_criteria": {
+                "importance": {
+                    "global_breakthrough": 10,  # 全球性突破
+                    "regional_breakthrough": 9,  # 区域性突破
+                    "major_update": 8,          # 重要更新
+                    "product_release": 7,       # 产品发布
+                    "general_progress": 6       # 一般进展
+                },
+                "relevance": {
+                    "core_tech": 10,      # 核心技术
+                    "commercial": 9,      # 商业落地
+                    "tech_innovation": 8, # 技术创新
+                    "infrastructure": 7,  # 基础设施
+                    "ecosystem": 6        # 生态发展
+                },
+                "geo_balance": {
+                    "international": {
+                        "global_leader": 10,    # 全球领先
+                        "regional_leader": 9,   # 区域领先
+                        "innovative_company": 8, # 创新企业
+                        "research_inst": 7      # 研究机构
+                    },
+                    "domestic": {
+                        "industry_leader": 10,  # 行业领军
+                        "innovative_company": 9, # 创新企业
+                        "research_inst": 8,     # 研究机构
+                        "industry_application": 7 # 产业应用
+                    }
+                }
+            }
+        }
 
         return Crew(
             agents=self.agents, # Automatically created by the @agent decorator
@@ -168,6 +267,7 @@ class DeepseekAiNewsCrew():
                 "time_range_start": yesterday_9am.strftime("%Y-%m-%d %H:%M:%S"),
                 "time_range_end": today_9am.strftime("%Y-%m-%d %H:%M:%S"),
                 "include_source": os.getenv("INCLUDE_SOURCE", "true").lower() == "true",
-                "include_link": os.getenv("INCLUDE_LINK", "true").lower() == "true"
+                "include_link": os.getenv("INCLUDE_LINK", "true").lower() == "true",
+                "news_scoring": news_scoring  # 添加新闻评分配置
             }
         )
