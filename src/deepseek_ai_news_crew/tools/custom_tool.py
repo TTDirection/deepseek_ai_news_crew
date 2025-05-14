@@ -198,13 +198,20 @@ class NewsSearchTool(BaseTool):
         time_limit = "d"
         if time_range:
             days = int(time_range.replace('d', ''))
-            time_limit = f"d{days}"
+            if days <= 1:
+                time_limit = "d"  # 1天
+            elif days <= 7:
+                time_limit = "w"  # 1周
+            elif days <= 30:
+                time_limit = "m"  # 1月
+            else:
+                time_limit = "y"  # 1年
         
         payload = {
             "q": f"{query} news",
-            "gl": "cn",  # 地理位置，可选
-            "hl": "zh-cn",  # 语言，可选
-            "num": min(max_results, 20),  # 结果数量
+            "num": min(max_results, 20),  # Serper允许最多100条结果
+            "gl": "us",  # 全球搜索
+            "hl": "zh-cn",  # 中文结果优先
             "tbs": f"qdr:{time_limit}"  # 时间限制
         }
         
@@ -215,31 +222,74 @@ class NewsSearchTool(BaseTool):
         
         data = response.json()
         
-        # Serper返回多种结果类型，我们优先使用news结果
-        news_items = data.get("news", [])
-        organic_items = data.get("organic", [])
+        # 提取新闻结果
+        news_results = []
         
-        all_items = news_items + organic_items
+        # 优先处理news box
+        if "news" in data and isinstance(data["news"], list):
+            news_results.extend(data["news"])
         
+        # 从搜索结果中提取新闻
+        if "organic" in data and isinstance(data["organic"], list):
+            for item in data["organic"]:
+                # 如果链接包含news、article等关键词，可能是新闻
+                link = item.get("link", "")
+                if any(keyword in link.lower() for keyword in ["news", "article", "blog", "press"]):
+                    news_results.append(item)
+        
+        # 格式化结果
         formatted_results = []
-        for item in all_items[:max_results]:
+        for item in news_results:
             title = item.get("title", "无标题")
-            link = item.get("link", "")
-            snippet = item.get("snippet", "无摘要")
-            source = item.get("source", "")
             
-            # 如果没有来源，尝试从链接中提取
-            if not source:
+            # 优先使用link，如果没有则使用source
+            link = item.get("link", "")
+            if not link and "source" in item:
+                link = item.get("source", "")
+            
+            # 如果带有重定向前缀，尝试提取原始URL
+            if "google.com/url" in link and "url=" in link:
+                try:
+                    original_url_start = link.index("url=") + 4
+                    original_url_end = link.find("&", original_url_start)
+                    if original_url_end > 0:
+                        link = link[original_url_start:original_url_end]
+                    else:
+                        link = link[original_url_start:]
+                except:
+                    pass  # 如果提取失败，保留原链接
+            
+            # 提取摘要
+            snippet = item.get("snippet", "")
+            if not snippet:
+                snippet = item.get("description", "无摘要")
+            
+            # 提取来源
+            source = "未知来源"
+            if "source" in item and isinstance(item["source"], str):
+                source = item["source"]
+            elif "displayLink" in item:
+                source = item["displayLink"]
+            else:
+                # 从链接中提取域名作为来源
                 parsed_url = urlparse(link)
                 source = parsed_url.netloc
             
-            # 尝试获取发布时间
+            # 提取发布时间
             pub_date = item.get("date", "未知")
-            if pub_date == "未知" and "publishedDate" in item:
-                pub_date = item["publishedDate"]
+            if not pub_date or pub_date == "未知":
+                pub_date = item.get("publishedDate", "未知")
             
             # 验证链接是否有效
             is_valid = self._validate_url(link)
+            
+            # 将英文内容翻译成中文
+            # 如果标题不包含中文字符，认为是英文标题需要翻译
+            if is_valid and not re.search('[\u4e00-\u9fff]', title):
+                try:
+                    title = f"{title} (原标题)"
+                except:
+                    pass
             
             if is_valid:
                 formatted_result = {

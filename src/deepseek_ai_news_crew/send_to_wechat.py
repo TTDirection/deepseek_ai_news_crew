@@ -5,7 +5,7 @@
 用法:
     python -m deepseek_ai_news_crew.send_to_wechat [报告文件路径]
 
-如果不指定报告文件路径，默认使用 ai_news_report.md
+如果不指定报告文件路径，默认使用 Outputs/ai_news_report.md
 """
 
 import os
@@ -13,15 +13,23 @@ import sys
 from dotenv import load_dotenv
 from deepseek_ai_news_crew.tools.wechat_tool import WechatMessageTool
 
-def send_report_to_wechat(report_path="ai_news_report.md"):
+def send_report_to_wechat(report_path="Outputs/ai_news_report.md"):
     """
     读取报告并发送到企业微信
     
     Args:
-        report_path: 报告文件路径，默认为 ai_news_report.md
+        report_path: 报告文件路径，默认为 Outputs/ai_news_report.md
     """
     # 加载环境变量
     load_dotenv()
+    
+    # 检查INCLUDE_WECHAT环境变量
+    include_wechat = os.getenv("INCLUDE_WECHAT", "false").lower() == "true"
+    print(f"INCLUDE_WECHAT 配置: {include_wechat}")
+    
+    if not include_wechat:
+        print("INCLUDE_WECHAT 设置为 false，跳过企业微信发送")
+        return False
     
     # 检查文件是否存在
     if not os.path.exists(report_path):
@@ -47,7 +55,7 @@ def main():
     if len(sys.argv) > 1:
         report_path = sys.argv[1]
     else:
-        report_path = "ai_news_report.md"
+        report_path = "Outputs/ai_news_report.md"
     
     # 发送报告
     success = send_report_to_wechat(report_path)

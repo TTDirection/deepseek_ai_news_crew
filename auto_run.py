@@ -25,15 +25,28 @@ def main():
     current_time = datetime.now().strftime("%Y%m%d_%H%M%S")
     log_file = os.path.join(log_dir, f"ai_news_run_{current_time}.log")
     
-    # 设置环境变量
-    os.environ["INCLUDE_SOURCE"] = "false"
-    os.environ["INCLUDE_LINK"] = "false"
+    # 读取并设置环境变量
+    load_dotenv(override=True)  # 加载.env文件
     
-    # 读取.env文件中的INCLUDE_WECHAT设置，如果没有则默认为false
-    load_dotenv()
+    # 强制设置某些环境变量，覆盖.env文件的值
+    override_vars = {
+        "INCLUDE_SOURCE": "false",
+        "INCLUDE_LINK": "false"
+    }
+    
+    # 应用覆盖值
+    for key, value in override_vars.items():
+        os.environ[key] = value
+        print(f"覆盖环境变量: {key}={value}")
+    
+    # 读取INCLUDE_WECHAT设置，不覆盖它
     include_wechat = os.getenv("INCLUDE_WECHAT", "false")
-    # 记录当前设置
+    print(f"保留环境变量: INCLUDE_WECHAT={include_wechat}")
+    
+    # 记录环境变量设置
     with open(log_file, "a", encoding="utf-8") as f:
+        for key, value in override_vars.items():
+            f.write(f"{key}设置为: {value}\n")
         f.write(f"INCLUDE_WECHAT设置为: {include_wechat}\n")
     
     # 记录开始运行的时间

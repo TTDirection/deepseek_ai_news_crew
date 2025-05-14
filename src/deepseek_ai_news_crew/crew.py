@@ -10,6 +10,60 @@ from .researcher_config import RESEARCHER_SYSTEM_PROMPT
 import os
 from dotenv import load_dotenv
 from datetime import datetime, timedelta
+import pathlib
+
+# 添加辅助函数检查.env文件
+def check_env_file():
+    """检查.env文件是否存在且能正确加载"""
+    env_path = pathlib.Path(".env")
+    if not env_path.exists():
+        print(f"警告: .env文件不存在于当前目录: {os.getcwd()}")
+        return False
+    
+    try:
+        with open(env_path, "r", encoding="utf-8") as f:
+            content = f.read()
+        print(f".env文件存在，内容长度: {len(content)} 字符")
+        
+        # 检查INCLUDE_WECHAT设置
+        for line in content.splitlines():
+            if line.strip().startswith("INCLUDE_WECHAT="):
+                print(f"在.env文件中找到设置: {line.strip()}")
+                break
+        else:
+            print("警告: 在.env文件中未找到INCLUDE_WECHAT设置")
+        
+        return True
+    except Exception as e:
+        print(f"读取.env文件时出错: {str(e)}")
+        return False
+
+# 确保Outputs目录存在
+def ensure_outputs_dir():
+    """确保Outputs目录存在"""
+    outputs_dir = pathlib.Path("Outputs")
+    if not outputs_dir.exists():
+        print(f"创建Outputs目录: {outputs_dir.absolute()}")
+        outputs_dir.mkdir(parents=True, exist_ok=True)
+    else:
+        print(f"Outputs目录已存在: {outputs_dir.absolute()}")
+    return outputs_dir.exists()
+
+# 读取新闻评分和条数环境变量
+def get_news_config():
+    """读取并返回新闻配置"""
+    # 从环境变量读取新闻评分和条数设置
+    min_news_score = float(os.getenv("MIN_NEWS_SCORE", "6"))
+    min_news_count = int(os.getenv("MIN_NEWS_COUNT", "5"))
+    max_news_count = int(os.getenv("MAX_NEWS_COUNT", "20"))
+    target_news_count = int(os.getenv("TARGET_NEWS_COUNT", "12"))
+    
+    return {
+        "min_news_score": min_news_score,
+        "min_news_count": min_news_count,
+        "max_news_count": max_news_count,
+        "target_news_count": target_news_count
+    }
 
 @CrewBase
 class DeepseekAiNewsCrew():
@@ -19,8 +73,30 @@ class DeepseekAiNewsCrew():
     tasks: List[Task]
 
     def __init__(self):
+        # 加载环境变量前检查.env文件
+        print("\n=== 初始化配置 ===")
+        print(f"当前工作目录: {os.getcwd()}")
+        check_env_file()
+        
+        # 确保Outputs目录存在
+        ensure_outputs_dir()
+        
+        # 检查环境变量加载前的状态
+        include_wechat_before = os.environ.get("INCLUDE_WECHAT", "未设置")
+        print(f"加载环境变量前 INCLUDE_WECHAT = {include_wechat_before}")
+        
         # 加载环境变量
-        load_dotenv()
+        load_dotenv(override=True)
+        
+        # 检查环境变量加载后的状态
+        include_wechat_after_load = os.environ.get("INCLUDE_WECHAT", "未设置")
+        print(f"加载环境变量后 INCLUDE_WECHAT = {include_wechat_after_load}")
+        
+        # 获取配置
+        config = get_news_config()
+        print("新闻评分和条数设置:")
+        for key, value in config.items():
+            print(f"- {key}: {value}")
         
         # 设置搜索API类型和控制选项
         # 默认使用Google API，可在.env中设置SEARCH_API_TYPE为"google"、"bing"或"serper"
@@ -35,8 +111,14 @@ class DeepseekAiNewsCrew():
         os.environ["INCLUDE_LINK"] = include_link
         
         # 设置是否发送到企业微信
-        self.include_wechat = os.getenv("INCLUDE_WECHAT", "false").lower() == "true"
-        #os.environ["INCLUDE_WECHAT"] = str(self.include_wechat).lower()
+        include_wechat_raw = os.getenv("INCLUDE_WECHAT", "false")
+        print(f"读取到的INCLUDE_WECHAT原始值: '{include_wechat_raw}'")
+        self.include_wechat = include_wechat_raw.lower() == "true"
+        print(f"INCLUDE_WECHAT配置解析结果: {self.include_wechat}")
+        
+        # 强制将环境变量设置为与配置一致的值
+        os.environ["INCLUDE_WECHAT"] = str(self.include_wechat).lower()
+        print(f"环境变量INCLUDE_WECHAT已设置为: {os.environ['INCLUDE_WECHAT']}")
         
         # 企业微信webhook key
         self.wechat_webhook_key = os.getenv("WECHAT_WEBHOOK_KEY", "8b529e9f-1dc9-4b5c-a60a-1b8d3298acdd")
@@ -99,7 +181,7 @@ class DeepseekAiNewsCrew():
     def analysis_task(self) -> Task:
         return Task(
             config=self.tasks_config['analysis_task'], # type: ignore[index]
-            output_file='ai_news_report.md'
+            output_file='Outputs/ai_news_report.md'
         )
     
     @after_kickoff
@@ -111,30 +193,63 @@ class DeepseekAiNewsCrew():
             result: Crew执行的结果
         """
         print("\n=== 企业微信发送流程 ===")
-        print(f"INCLUDE_WECHAT 配置: {self.include_wechat}")
+        
+        # 确保环境变量与.env文件同步
+        reload_env_result = load_dotenv(override=True)
+        print(f"重新加载.env文件: {'成功' if reload_env_result else '无变化'}")
+        
+        # 每次执行时重新从环境变量读取INCLUDE_WECHAT设置
+        include_wechat_raw = os.getenv("INCLUDE_WECHAT", "false")
+        print(f"读取到的INCLUDE_WECHAT原始值: '{include_wechat_raw}'")
+        include_wechat = include_wechat_raw.lower() == "true"
+        print(f"INCLUDE_WECHAT配置解析结果: {include_wechat}")
+        
+        # 强制将环境变量设置为.env文件中的值
+        os.environ["INCLUDE_WECHAT"] = include_wechat_raw
+        print(f"环境变量INCLUDE_WECHAT已设置为: {os.environ['INCLUDE_WECHAT']}")
     
-        if not self.include_wechat:
+        # 检查是否需要发送到企业微信
+        if not include_wechat:
             print("INCLUDE_WECHAT 设置为 false，跳过企业微信发送")
             print("=== 企业微信发送流程结束 ===\n")
-            return result        
-        
+            return result
+
         try:
             # 读取生成的AI日报
-            report_path = "ai_news_report.md"
+            report_path = "Outputs/ai_news_report.md"  # 更新为新的报告路径
             print(f"尝试读取报告文件: {report_path}")
             
-            if os.path.exists(report_path):
-                with open(report_path, "r", encoding="utf-8") as f:
-                    content = f.read()
-                print(f"成功读取报告文件，内容长度: {len(content)} 字符")
-                
-                # 使用企业微信工具发送
-                wechat_tool = WechatMessageTool()
-                print("正在发送到企业微信...")
-                result = wechat_tool._run(content=content, webhook_key=self.wechat_webhook_key)
-                print(f"企业微信发送结果: {result}")
-            else:
+            # 检查文件是否存在
+            report_file = pathlib.Path(report_path)
+            if not report_file.exists():
                 print(f"错误: 无法找到报告文件: {report_path}")
+                print(f"绝对路径: {report_file.absolute()}")
+                
+                # 检查Outputs目录是否存在及其内容
+                outputs_dir = pathlib.Path("Outputs")
+                if outputs_dir.exists():
+                    print(f"Outputs目录存在于: {outputs_dir.absolute()}")
+                    files = list(outputs_dir.glob("*"))
+                    if files:
+                        print(f"Outputs目录中的文件: {[f.name for f in files]}")
+                    else:
+                        print("Outputs目录为空")
+                else:
+                    print(f"Outputs目录不存在于: {outputs_dir.absolute()}")
+                
+                print("=== 企业微信发送流程结束 ===\n")
+                return result
+            
+            # 文件存在，继续处理
+            with open(report_path, "r", encoding="utf-8") as f:
+                content = f.read()
+            print(f"成功读取报告文件，内容长度: {len(content)} 字符")
+            
+            # 使用企业微信工具发送
+            wechat_tool = WechatMessageTool()
+            print("正在发送到企业微信...")
+            result = wechat_tool._run(content=content, webhook_key=self.wechat_webhook_key)
+            print(f"企业微信发送结果: {result}")
         except Exception as e:
             print(f"发送到企业微信时发生错误: {str(e)}")
             import traceback
@@ -215,13 +330,19 @@ class DeepseekAiNewsCrew():
             "战争", "谣言", "虚假信息"
         ]
 
+        # 获取配置
+        news_config = get_news_config()
+
         # 新闻评分标准
         news_scoring = {
             "importance_weight": 0.35,    # 重要性权重
             "relevance_weight": 0.35,     # 相关性权重
             "geo_balance_weight": 0.30,   # 地域平衡权重
-            "min_score": 7.5,            # 最低分数要求（满分10分）
+            "min_score": news_config["min_news_score"],  # 最低分数要求（满分10分）
             "international_ratio": 0.55,  # 国际新闻比例要求
+            "min_news_count": news_config["min_news_count"],    # 最少新闻条数
+            "max_news_count": news_config["max_news_count"],    # 最多新闻条数
+            "target_news_count": news_config["target_news_count"],  # 目标新闻条数
             "scoring_criteria": {
                 "importance": {
                     "global_breakthrough": 10,  # 全球性突破
