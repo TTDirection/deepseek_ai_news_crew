@@ -7,6 +7,7 @@
 import os
 import sys
 import subprocess
+import shutil
 from datetime import datetime
 from dotenv import load_dotenv
 
@@ -23,6 +24,7 @@ def main():
         os.makedirs(log_dir)
     
     current_time = datetime.now().strftime("%Y%m%d_%H%M%S")
+    today_date = datetime.now().strftime("%Y%m%d")
     log_file = os.path.join(log_dir, f"ai_news_run_{current_time}.log")
     
     # 读取并设置环境变量
@@ -92,21 +94,33 @@ def main():
             end_time = datetime.now().strftime("%Y%m%d_%H%M%S")
             f.write(f"\n=== 结束运行时间: {end_time} ===\n")
             f.write(f"返回码: {process.returncode}\n")
-            
-            # 记录生成的文件
-            today_date = datetime.now().strftime("%Y%m%d")
-            report_file = f"Outputs/ai_news_report_{today_date}.md"
-            data_file = f"Outputs/raw_news_data_{today_date}.json"
-            
-            if os.path.exists(report_file):
-                f.write(f"生成报告文件: {report_file}\n")
+        
+        # 处理输出文件 - 复制并重命名带日期的版本
+        outputs_dir = os.path.join(script_dir, "Outputs")
+        if not os.path.exists(outputs_dir):
+            os.makedirs(outputs_dir)
+        
+        # 原始文件路径
+        original_report_file = os.path.join(outputs_dir, "ai_news_report.md")
+        original_data_file = os.path.join(outputs_dir, "raw_news_data.json")
+        
+        # 带日期的目标文件路径
+        dated_report_file = os.path.join(outputs_dir, f"ai_news_report_{today_date}.md")
+        dated_data_file = os.path.join(outputs_dir, f"raw_news_data_{today_date}.json")
+        
+        # 复制文件并记录到日志
+        with open(log_file, "a", encoding="utf-8") as f:
+            if os.path.exists(original_report_file):
+                shutil.copy2(original_report_file, dated_report_file)
+                f.write(f"生成报告文件: {dated_report_file}\n")
             else:
-                f.write(f"警告: 未找到报告文件 {report_file}\n")
+                f.write(f"警告: 未找到报告文件 {original_report_file}\n")
                 
-            if os.path.exists(data_file):
-                f.write(f"生成数据文件: {data_file}\n")
+            if os.path.exists(original_data_file):
+                shutil.copy2(original_data_file, dated_data_file)
+                f.write(f"生成数据文件: {dated_data_file}\n")
             else:
-                f.write(f"警告: 未找到数据文件 {data_file}\n")
+                f.write(f"警告: 未找到数据文件 {original_data_file}\n")
         
         return process.returncode
     

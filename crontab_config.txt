@@ -1,0 +1,9 @@
+# 定时任务配置
+# 格式: 分钟 小时 日 月 星期 命令
+# 星期：0-6（0表示周日，1-5表示周一至周五，6表示周六）
+
+# 工作日（周一至周五）早上9点运行
+0 9 * * 1-5 cd ~/Desktop/PythonProject/deepseek_ai_news_crew && ./run_ai_news.sh >> ~/Desktop/PythonProject/deepseek_ai_news_crew/logs/cron_run.log 2>&1
+
+# 周末（周六和周日）中午12点运行
+0 12 * * 0,6 cd ~/Desktop/PythonProject/deepseek_ai_news_crew && ./run_ai_news.sh >> ~/Desktop/PythonProject/deepseek_ai_news_crew/logs/cron_run.log 2>&1 
