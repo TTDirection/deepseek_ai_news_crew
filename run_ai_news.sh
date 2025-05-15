@@ -8,7 +8,7 @@ cd "$(dirname "$0")"
 # source .venv/bin/activate
 
 # 执行Python脚本
-python auto_run.py
+python3 auto_run.py
 
 echo "任务执行完成 - $(date)"
 exit $? 
