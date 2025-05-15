@@ -3,17 +3,38 @@
   <RegistrationInfo>
     <Date>2023-04-28T09:00:00</Date>
     <Author>AI新闻自动化</Author>
-    <Description>每天早上9点自动生成AI热点新闻报告并发送至企业微信</Description>
+    <Description>工作日（周一到周五）早上9点和周末（周六日）中午12点自动生成AI热点新闻报告并发送至企业微信</Description>
     <URI>\AI新闻日报任务</URI>
   </RegistrationInfo>
   <Triggers>
+    <!-- 工作日（周一到周五）早上9点运行 -->
     <CalendarTrigger>
       <StartBoundary>2023-04-28T09:00:00</StartBoundary>
       <ExecutionTimeLimit>PT1H</ExecutionTimeLimit>
       <Enabled>true</Enabled>
-      <ScheduleByDay>
-        <DaysInterval>1</DaysInterval>
-      </ScheduleByDay>
+      <ScheduleByWeek>
+        <DaysOfWeek>
+          <Monday />
+          <Tuesday />
+          <Wednesday />
+          <Thursday />
+          <Friday />
+        </DaysOfWeek>
+        <WeeksInterval>1</WeeksInterval>
+      </ScheduleByWeek>
+    </CalendarTrigger>
+    <!-- 周末（周六日）中午12点运行 -->
+    <CalendarTrigger>
+      <StartBoundary>2023-04-28T12:00:00</StartBoundary>
+      <ExecutionTimeLimit>PT1H</ExecutionTimeLimit>
+      <Enabled>true</Enabled>
+      <ScheduleByWeek>
+        <DaysOfWeek>
+          <Saturday />
+          <Sunday />
+        </DaysOfWeek>
+        <WeeksInterval>1</WeeksInterval>
+      </ScheduleByWeek>
     </CalendarTrigger>
   </Triggers>
   <Principals>
