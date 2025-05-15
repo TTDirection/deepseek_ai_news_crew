@@ -1,135 +1,120 @@
-以下是经过筛选和评分的AI相关新闻列表（按得分从高到低排序）：
+1. 标题: DeepMind unveils 'spectacular' general-purpose science AI - Nature (原标题)
+   来源: www.nature.com
+   链接: https://www.nature.com/articles/d41586-025-01523-z
+   时间: 12小时前
+   评分:
+   - 重要性: 10分 (全球性突破：DeepMind发布通用科学AI，可改进芯片设计并解决未解数学问题)
+   - 相关性: 10分 (核心技术：涉及大模型架构和基础算法突破)
+   - 地域平衡: 10分 (全球领先AI公司新闻)
+   - 最终得分: 10分
+   内容: DeepMind发布了一款"惊人"的通用科学AI系统，该系统能够改进芯片设计并解决未解的数学问题。这一突破性技术展示了AI在科学研究中的巨大潜力，但目前尚未大规模部署。该系统代表了AI技术在跨学科应用中的重要进展。
 
-1. 标题：DeepMind发布"惊人"的通用科学AI系统
-来源：Nature
-链接：https://www.nature.com/articles/d41586-025-01523-z
-时间：2025年5月14日
-评分：
-- 重要性：10分（全球性突破，重大技术突破）
-- 相关性：10分（核心技术，大模型架构）
-- 地域平衡：10分（全球领先AI公司）
-- 最终得分：10分
-内容：DeepMind发布了一款通用科学AI系统，能够改进芯片设计并解决未解的数学问题。该系统展示了AI在科学研究中的巨大潜力，虽然尚未全面部署，但已引起科学界广泛关注。这项突破性技术可能改变多个科学领域的研究方式。
+2. 标题: ORNL hosts AI Expo, features OpenAI and Anthropic models (原标题)
+   来源: www.ornl.gov
+   链接: https://www.ornl.gov/news/ornl-hosts-ai-expo-features-openai-and-anthropic-models
+   时间: 16小时前
+   评分:
+   - 重要性: 9分 (区域性突破：美国能源部实验室举办AI博览会)
+   - 相关性: 9分 (商业落地：展示OpenAI和Anthropic模型的实际应用)
+   - 地域平衡: 9分 (全球领先AI公司新闻)
+   - 最终得分: 9分
+   内容: 美国能源部橡树岭国家实验室举办了AI博览会，汇集了200多位AI专家和领域科学家。活动重点展示了OpenAI和Anthropic的AI模型，探讨了AI在各科学领域的应用前景。这次活动促进了学术界与产业界的交流合作。
 
-2. 标题：美国共和党提议禁止各州监管AI技术10年
-来源：The Guardian
-链接：https://www.theguardian.com/us-news/2025/may/14/republican-budget-bill-ai-laws
-时间：2025年5月14日
-评分：
-- 重要性：9分（区域性突破，重要政策变化）
-- 相关性：9分（商业落地，影响AI产业发展）
-- 地域平衡：9分（美国重要政策）
-- 最终得分：9分
-内容：美国共和党在预算法案中提出禁止各州在未来10年内监管AI技术，旨在防止各州制定AI使用护栏。这一提议引发广泛争议，支持者认为将促进创新，反对者则担忧缺乏必要监管。该政策可能对美国AI产业发展产生深远影响。
+3. 标题: New Google Cloud certification in generative AI (原标题)
+   来源: cloud.google.com
+   链接: https://cloud.google.com/blog/topics/training-certifications/new-google-cloud-certification-in-generative-ai
+   时间: 11小时前
+   评分:
+   - 重要性: 8分 (重要更新：Google推出生成式AI认证)
+   - 相关性: 8分 (技术创新：针对非技术人员的生成式AI培训)
+   - 地域平衡: 10分 (全球领先科技公司新闻)
+   - 最终得分: 8.6分
+   内容: Google Cloud宣布推出首个面向非技术人员的生成式AI认证项目。这一创新性的认证旨在帮助非技术人员掌握生成式AI的基本知识和应用技能，为他们在AI时代获得竞争优势。该项目反映了企业对AI人才需求的多样化趋势。
 
-3. 标题：MIT研究人员开发AI模型统一框架
-来源：MIT News
-链接：https://news.mit.edu/topic/artificial-intelligence2
-时间：2025年5月14日
-评分：
-- 重要性：8分（重要研究成果）
-- 相关性：10分（核心技术，基础算法）
-- 地域平衡：8分（国际知名研究机构）
-- 最终得分：8.8分
-内容：MIT研究人员创建了一个统一框架，帮助科学家整合现有思路来改进AI模型或创建新模型。这一框架有望简化AI开发流程，促进不同AI技术之间的融合。研究成果已在顶级期刊发表，获得同行高度评价。
+4. 标题: 61% of Global Businesses are Scaling Back AI Investment as a ... - Qlik (原标题)
+   来源: www.qlik.com
+   链接: https://www.qlik.com/us/news/company/press-room/press-releases/61-percent-of-global-businesses-are-scaling-back-ai-investment-as-a-result-of-trust-issues
+   时间: 14小时前
+   评分:
+   - 重要性: 8分 (重要更新：全球AI投资趋势变化)
+   - 相关性: 9分 (商业落地：AI投资与信任问题)
+   - 地域平衡: 8分 (国际商业新闻)
+   - 最终得分: 8.3分
+   内容: Qlik研究显示，尽管88%的企业认为AI对成功至关重要，但61%的全球企业因信任问题正在缩减AI投资。研究指出，缺乏信任、技能不足和数据治理问题是阻碍AI应用的主要因素。这一发现对AI产业发展具有重要启示意义。
 
-4. 标题：沙特阿拉伯成为AI芯片大买家
-来源：Investors.com
-链接：https://www.investors.com/news/technology/ai-stocks-saudi-deals-nvidia-amd-supermicro/
-时间：2025年5月14日
-评分：
-- 重要性：8分（重要商业化进展）
-- 相关性：9分（商业落地，基础设施）
-- 地域平衡：8分（中东地区重要发展）
-- 最终得分：8.5分
-内容：沙特阿拉伯近期达成多项AI芯片大额采购协议，成为全球AI芯片市场的重要买家。受此消息影响，Nvidia等AI芯片公司股价连续上涨。这表明中东国家正在积极布局AI基础设施，可能改变全球AI产业格局。
+5. 标题: Binghamton University to establish Institute for AI and Society (原标题)
+   来源: www.binghamton.edu
+   链接: https://www.binghamton.edu/news/story/5484/binghamton-university-to-establish-institute-for-ai-and-society
+   时间: 15小时前
+   评分:
+   - 重要性: 7分 (产品发布：新AI研究所成立)
+   - 相关性: 8分 (生态发展：AI与社会研究)
+   - 地域平衡: 8分 (美国高等教育机构新闻)
+   - 最终得分: 7.7分
+   内容: 宾汉姆顿大学将成立AI与社会研究所，该研究所将利用Empire AI(最强大的学术研究计算机)的力量，研究AI技术对社会的影响。这一举措反映了学术界对AI伦理和社会影响的日益关注。
 
-5. 标题：谷歌云推出生成式AI认证课程
-来源：Google Cloud Blog
-链接：https://cloud.google.com/blog/topics/training-certifications/new-google-cloud-certification-in-generative-ai
-时间：2025年5月14日
-评分：
-- 重要性：7分（重要产品更新）
-- 相关性：8分（技术创新，开发工具）
-- 地域平衡：9分（全球领先科技公司）
-- 最终得分：8分
-内容：谷歌云宣布推出首个面向非技术人员的生成式AI认证课程，旨在帮助更多人掌握AI基础知识。该课程涵盖生成式AI的核心概念和应用场景，获得认证者将在就业市场获得竞争优势。这反映了企业对AI人才培训的重视。
+6. 标题: AI Chatbots Aren't Experts on Psych Med Reactions — Yet (原标题)
+   来源: news.gatech.edu
+   链接: https://news.gatech.edu/news/2025/05/14/ai-chatbots-arent-experts-psych-med-reactions-yet
+   时间: 13小时前
+   评分:
+   - 重要性: 7分 (一般进展：AI在医疗领域的局限性)
+   - 相关性: 8分 (技术创新：AI医疗应用评估)
+   - 地域平衡: 8分 (美国研究机构新闻)
+   - 最终得分: 7.7分
+   内容: 佐治亚理工学院研究人员开发了新工具评估AI聊天机器人检测药物不良反应的能力。研究发现当前AI系统在精神药物反应预测方面仍有局限，但为未来改进提供了方向。这项研究对AI在医疗领域的应用具有参考价值。
 
-6. 标题：AI是否具有自由意志？新研究称我们越来越接近
-来源：Neuroscience News
-链接：https://neurosciencenews.com/ai-free-will-ethics-28919/
-时间：2025年5月14日
-评分：
-- 重要性：7分（重要研究成果）
-- 相关性：8分（技术创新，伦理探讨）
-- 地域平衡：7分（国际研究机构）
-- 最终得分：7.4分
-内容：一项新研究认为，某些生成式AI代理已经满足自由意志的三个哲学标准：能动性、选择和控制。这项研究引发关于AI伦理和权利的热烈讨论，研究人员呼吁建立相应的伦理框架来应对这一挑战。
+7. 标题: Stony Brook Medicine Pioneers Use of AI Technology for Heart ... (原标题)
+   来源: news.stonybrook.edu
+   链接: https://news.stonybrook.edu/newsroom/press-release/medical/stony-brook-medicine-pioneers-use-of-ai-technology-for-heart-disease-diagnosis-on-long-island/
+   时间: 15小时前
+   评分:
+   - 重要性: 7分 (产品发布：AI心脏诊断技术)
+   - 相关性: 8分 (商业落地：AI医疗应用)
+   - 地域平衡: 7分 (美国医疗机构新闻)
+   - 最终得分: 7.4分
+   内容: 石溪大学医学院率先使用AI技术进行心脏病诊断。这项创新技术可全面评估患者冠状动脉疾病，提供以往无法获得的详细数据。该应用展示了AI在提升医疗诊断精度方面的潜力。
 
-7. 标题：Stony Brook医学中心率先使用AI技术诊断心脏病
-来源：Stony Brook University News
-链接：https://news.stonybrook.edu/newsroom/press-release/medical/stony-brook-medicine-pioneers-use-of-ai-technology-for-heart-disease-diagnosis-on-long-island/
-时间：2025年5月14日
-评分：
-- 重要性：7分（重要医疗应用）
-- 相关性：8分（创新应用场景）
-- 地域平衡：7分（美国地区应用）
-- 最终得分：7.4分
-内容：Stony Brook医学中心率先使用创新AI技术进行心脏病诊断，该技术能提供比传统方法更全面的冠状动脉疾病评估。临床测试显示，AI辅助诊断能发现以往难以检测的病变细节，有望提高诊断准确率和早期发现率。
+8. 标题: Artificial intelligence | Massachusetts Institute of Technology (原标题)
+   来源: news.mit.edu
+   链接: https://news.mit.edu/topic/artificial-intelligence2
+   时间: 12小时前
+   评分:
+   - 重要性: 7分 (一般进展：AI模型改进框架)
+   - 相关性: 8分 (核心技术：AI模型架构研究)
+   - 地域平衡: 8分 (国际知名高校研究)
+   - 最终得分: 7.7分
+   内容: MIT研究人员创建了统一框架，帮助科学家整合现有思路改进AI模型或创建新模型。这一方法论研究为AI模型的持续优化提供了系统性解决方案，对AI基础研究具有重要价值。
 
-8. 标题：Informatica推出基于AI的云数据管理平台
-来源：Informatica
-链接：https://www.informatica.com/about-us/news/news-releases/2025/05/20250514-informatica-unveils-agentic-ai-offerings-on-industrys-first-ai-powered-cloud-data-management-platform.html
-时间：2025年5月14日
-评分：
-- 重要性：7分（新产品发布）
-- 相关性：8分（商业落地，基础设施）
-- 地域平衡：7分（国际企业）
-- 最终得分：7.4分
-内容：Informatica发布行业首个AI驱动的云数据管理平台，包含AI代理工程服务和CLAIRE代理等创新功能。该平台能帮助企业构建、连接和管理智能AI代理工作流，提高数据处理效率和智能化水平，已获得多个行业客户采用。
+9. 标题: Informatica Unveils Agentic AI Offerings on Its AI-Powered Cloud ... (原标题)
+   来源: www.informatica.com
+   链接: https://www.informatica.com/about-us/news/news-releases/2025/05/20250514-informatica-unveils-agentic-ai-offerings-on-industrys-first-ai-powered-cloud-data-management-platform.html
+   时间: 14小时前
+   评分:
+   - 重要性: 7分 (产品发布：代理AI产品)
+   - 相关性: 7分 (基础设施：AI云数据管理)
+   - 地域平衡: 7分 (国际科技公司新闻)
+   - 最终得分: 7分
+   内容: Informatica发布了代理AI产品线，包括AI代理工程服务和CLAIRE代理。这些新产品使企业能够构建、连接和管理智能AI代理工作流，代表了AI在数据管理领域的最新应用进展。
 
-9. 标题：AI如何改变美国就业市场
-来源：Bloomberg
-链接：https://www.bloomberg.com/news/features/2025-05-14/how-ai-is-changing-american-jobs-from-teachers-to-nurses
-时间：2025年5月14日
-评分：
-- 重要性：7分（重要社会影响）
-- 相关性：8分（商业落地，社会影响）
-- 地域平衡：7分（美国市场分析）
-- 最终得分：7.4分
-内容：Bloomberg专题报道探讨AI如何改变美国就业市场，涵盖教师、护士等多个职业。报道指出AI既创造了新岗位，也替代了部分工作，企业需要重新思考人才培养和岗位设计。专家建议政府和企业合作应对这一转型挑战。
+10. 标题: Experts to discuss AI, ethics and society at free, public workshop at SIU (原标题)
+    来源: news.siu.edu
+    链接: https://news.siu.edu/2025/05/051525-experts-to-discuss-ai-ethics-and-society-at-free-public-workshop-at-siu.php
+    时间: 13小时前
+    评分:
+    - 重要性: 6分 (一般进展：AI伦理研讨会)
+    - 相关性: 7分 (生态发展：AI与社会)
+    - 地域平衡: 7分 (美国高校活动)
+    - 最终得分: 6.7分
+    内容: 南伊利诺伊大学将举办免费公开研讨会，探讨AI带来的社会变革及其伦理影响。活动将汇集多位专家，讨论AI技术发展对社会各层面的深远影响，反映了学术界对AI伦理问题的持续关注。
 
-10. 标题：AI在新闻编辑室中的有效与伦理应用研究
-来源：UNC Hussman School of Journalism
-链接：https://hussman.unc.edu/news/carolinas-research-impact-effective-and-ethical-ai-in-the-newsroom
-时间：2025年5月14日
-评分：
-- 重要性：6分（行业动态）
-- 相关性：7分（创新应用场景）
-- 地域平衡：7分（美国研究）
-- 最终得分：6.7分
-内容：北卡罗来纳大学研究人员探讨AI在新闻编辑室中的应用挑战与机遇。研究关注如何平衡AI带来的效率提升与新闻伦理要求，提出了一系列实用建议，包括透明度标准和人工审核流程，已获得多家媒体机构采纳。
-
-11. 标题：台湾Computex将展示AI进展，Nvidia黄仁勋将发表主题演讲
-来源：Yahoo Finance
-链接：https://finance.yahoo.com/news/taiwans-computex-showcase-ai-advances-000420345.html
-时间：2025年5月14日
-评分：
-- 重要性：6分（行业动态）
-- 相关性：7分（技术创新）
-- 地域平衡：7分（亚洲地区活动）
-- 最终得分：6.7分
-内容：即将举行的台湾Computex展会将成为AI技术展示平台，Nvidia CEO黄仁勋确认将发表主题演讲。预计展会将聚焦设备端AI软件和云端AI的融合，AMD等公司也将展示最新AI芯片技术，反映亚洲在AI硬件领域的重要地位。
-
-12. 标题：Binghamton大学将建立AI与社会研究所
-来源：Binghamton University News
-链接：https://www.binghamton.edu/news/story/5484/binghamton-university-to-establish-institute-for-ai-and-society
-时间：2025年5月14日
-评分：
-- 重要性：6分（学术机构动态）
-- 相关性：7分（生态发展）
-- 地域平衡：6分（美国地区）
-- 最终得分：6.5分
-内容：Binghamton大学宣布将建立AI与社会研究所，利用Empire AI超级计算机开展研究。该研究所将探索AI技术的社会影响和伦理问题，促进跨学科合作，首批研究项目将关注教育、医疗和政府服务等领域的AI应用。
-
-注：以上12条新闻中，国际新闻占比为67%（8条），国内新闻占比为33%（4条），符合国际新闻不低于55%的要求。所有新闻最终得分均≥6分，并按得分从高到低排序。
+11. 标题: "AI is making outputs more accessible, forgetting the value of the ... (原标题)
+    来源: viterbischool.usc.edu
+    链接: https://viterbischool.usc.edu/news/2025/05/ai-is-making-outputs-more-accessible-forgetting-the-value-of-the-process/
+    时间: 10小时前
+    评分:
+    - 重要性: 6分 (一般进展：AI输出价值讨论)
+    - 相关性: 7分 (生态发展：AI应用反思)
+    - 地域平衡: 7分 (美国高校观点)
+    - 最终得分: 6.7分
+    内容: 南加州大学专家探讨了AI使输出更易获取但可能忽视过程价值的问题。文章从研究网络仇恨言论到生成式AI批评等角度，提供了保持研究积极性的建议，对AI应用的伦理思考具有启发意义。
