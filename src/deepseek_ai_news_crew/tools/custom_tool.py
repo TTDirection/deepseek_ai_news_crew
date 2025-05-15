@@ -12,7 +12,7 @@ class WebSearchInput(BaseModel):
     """Input schema for WebSearchTool."""
     query: str = Field(..., description="搜索关键词")
     time_range: Optional[str] = Field(None, description="时间范围，例如：'1d'表示过去一天")
-    max_results: Optional[int] = Field(10, description="返回结果的最大数量")
+    max_results: Optional[int] = Field(30, description="返回结果的最大数量")
 
 class NewsSearchTool(BaseTool):
     name: str = "网络新闻搜索工具"
@@ -22,8 +22,14 @@ class NewsSearchTool(BaseTool):
     )
     args_schema: Type[BaseModel] = WebSearchInput
 
-    def _run(self, query: str, time_range: Optional[str] = None, max_results: Optional[int] = 10) -> str:
+    def _run(self, query: str, time_range: Optional[str] = None, max_results: Optional[int] = 30) -> str:
         try:
+            # 从环境变量获取原始搜索数量，默认为30条
+            raw_search_count = int(os.getenv("RAW_SEARCH_COUNT", "30"))
+            
+            # 使用环境变量设置的数量优先级高于参数设置
+            max_results = raw_search_count
+            
             # 从环境变量中读取搜索API配置
             api_key = os.getenv("SEARCH_API_KEY")
             # 尝试从SERPER_API_KEY获取（如果SEARCH_API_KEY不存在且使用的是serper）
@@ -209,7 +215,7 @@ class NewsSearchTool(BaseTool):
         
         payload = {
             "q": f"{query} news",
-            "num": min(max_results, 20),  # Serper允许最多100条结果
+            "num": min(max_results, 30),  # Serper允许最多100条结果，但我们限制在30条
             "gl": "us",  # 全球搜索
             "hl": "zh-cn",  # 中文结果优先
             "tbs": f"qdr:{time_limit}"  # 时间限制

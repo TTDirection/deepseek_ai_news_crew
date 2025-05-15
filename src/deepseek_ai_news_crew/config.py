@@ -10,15 +10,17 @@ def load_env_vars():
     """加载并返回环境变量"""
     # 从环境变量读取新闻评分和条数设置
     min_news_score = float(os.getenv("MIN_NEWS_SCORE", "6"))
-    min_news_count = int(os.getenv("MIN_NEWS_COUNT", "5"))
-    max_news_count = int(os.getenv("MAX_NEWS_COUNT", "20"))
-    target_news_count = int(os.getenv("TARGET_NEWS_COUNT", "12"))
+    min_news_count = int(os.getenv("MIN_NEWS_COUNT", "7"))
+    max_news_count = int(os.getenv("MAX_NEWS_COUNT", "15"))
+    target_news_count = int(os.getenv("TARGET_NEWS_COUNT", "10"))
+    raw_search_count = int(os.getenv("RAW_SEARCH_COUNT", "30"))
     
     return {
         "min_news_score": min_news_score,
         "min_news_count": min_news_count,
         "max_news_count": max_news_count,
-        "target_news_count": target_news_count
+        "target_news_count": target_news_count,
+        "raw_search_count": raw_search_count
     }
 
 def apply_config_to_templates():

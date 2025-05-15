@@ -57,12 +57,14 @@ def get_news_config():
     min_news_count = int(os.getenv("MIN_NEWS_COUNT", "5"))
     max_news_count = int(os.getenv("MAX_NEWS_COUNT", "20"))
     target_news_count = int(os.getenv("TARGET_NEWS_COUNT", "12"))
+    raw_search_count = int(os.getenv("RAW_SEARCH_COUNT", "30"))
     
     return {
         "min_news_score": min_news_score,
         "min_news_count": min_news_count,
         "max_news_count": max_news_count,
-        "target_news_count": target_news_count
+        "target_news_count": target_news_count,
+        "raw_search_count": raw_search_count
     }
 
 @CrewBase
@@ -102,6 +104,10 @@ class DeepseekAiNewsCrew():
         # 默认使用Google API，可在.env中设置SEARCH_API_TYPE为"google"、"bing"或"serper"
         search_api_type = os.getenv("SEARCH_API_TYPE", "google")
         os.environ["SEARCH_API_TYPE"] = search_api_type
+        
+        # 设置原始搜索数量
+        raw_search_count = os.getenv("RAW_SEARCH_COUNT", "30")
+        os.environ["RAW_SEARCH_COUNT"] = raw_search_count
         
         # 设置是否在输出中包含来源和链接，默认都包含
         # 可在.env中设置INCLUDE_SOURCE和INCLUDE_LINK为"true"或"false"
@@ -173,15 +179,24 @@ class DeepseekAiNewsCrew():
 
     @task
     def research_task(self) -> Task:
+        # 获取当前日期，用于文件名
+        today_str = datetime.now().strftime("%Y%m%d")
+        output_file = f"Outputs/raw_news_data_{today_str}.json"
+        
         return Task(
             config=self.tasks_config['research_task'], # type: ignore[index]
+            output_file=output_file
         )
 
     @task
     def analysis_task(self) -> Task:
+        # 获取当前日期，用于文件名
+        today_str = datetime.now().strftime("%Y%m%d")
+        output_file = f"Outputs/ai_news_report_{today_str}.md"
+        
         return Task(
             config=self.tasks_config['analysis_task'], # type: ignore[index]
-            output_file='Outputs/ai_news_report.md'
+            output_file=output_file
         )
     
     @after_kickoff
@@ -215,8 +230,9 @@ class DeepseekAiNewsCrew():
             return result
 
         try:
-            # 读取生成的AI日报
-            report_path = "Outputs/ai_news_report.md"  # 更新为新的报告路径
+            # 获取当前日期，用于文件名
+            today_str = datetime.now().strftime("%Y%m%d")
+            report_path = f"Outputs/ai_news_report_{today_str}.md"
             print(f"尝试读取报告文件: {report_path}")
             
             # 检查文件是否存在
@@ -262,10 +278,10 @@ class DeepseekAiNewsCrew():
     @crew
     def crew(self) -> Crew:
         """Creates the DeepseekAiNewsCrew crew"""
-        # 获取当前日期和昨天日期用于时间范围
+        # 获取当前日期和过去10天的日期用于时间范围
         today = datetime.now()
-        yesterday = today - timedelta(days=1)
-        yesterday_9am = yesterday.replace(hour=9, minute=0, second=0, microsecond=0)
+        days_ago = today - timedelta(days=10)  # 使用10天前的日期
+        yesterday_9am = days_ago.replace(hour=9, minute=0, second=0, microsecond=0)
         today_9am = today.replace(hour=9, minute=0, second=0, microsecond=0)
           
         # 定义AI相关关键词列表，按类别组织
@@ -384,7 +400,7 @@ class DeepseekAiNewsCrew():
                 "ai_keywords": ai_keywords,
                 "block_keywords": block_keywords,
                 "today_date": today.strftime("%Y-%m-%d"),
-                "yesterday_date": yesterday.strftime("%Y-%m-%d"),
+                "yesterday_date": today.strftime("%Y-%m-%d"),
                 "time_range_start": yesterday_9am.strftime("%Y-%m-%d %H:%M:%S"),
                 "time_range_end": today_9am.strftime("%Y-%m-%d %H:%M:%S"),
                 "include_source": os.getenv("INCLUDE_SOURCE", "true").lower() == "true",

@@ -28,13 +28,15 @@ def main():
                 content = f.read().strip()
             print(f"文件内容 ({len(content)} 字符):\n{content}")
             
-            # 检查INCLUDE_WECHAT配置
-            for line in content.splitlines():
-                if line.strip().startswith("INCLUDE_WECHAT="):
-                    print(f"\n[.env] INCLUDE_WECHAT设置: {line.strip()}")
-                    break
-            else:
-                print("\n[.env] 未找到INCLUDE_WECHAT设置")
+            # 检查关键配置
+            important_vars = ["INCLUDE_WECHAT", "MIN_NEWS_SCORE", "RAW_SEARCH_COUNT", "MIN_NEWS_COUNT", "MAX_NEWS_COUNT"]
+            for var in important_vars:
+                for line in content.splitlines():
+                    if line.strip().startswith(f"{var}="):
+                        print(f"\n[.env] {var}设置: {line.strip()}")
+                        break
+                else:
+                    print(f"\n[.env] 未找到{var}设置")
         except Exception as e:
             print(f"读取.env文件出错: {str(e)}")
     else:
@@ -42,7 +44,16 @@ def main():
     
     print_section("当前环境变量 (加载.env前)")
     include_wechat_before = os.environ.get("INCLUDE_WECHAT", "未设置")
+    raw_search_count_before = os.environ.get("RAW_SEARCH_COUNT", "未设置")
+    min_news_score_before = os.environ.get("MIN_NEWS_SCORE", "未设置")
+    min_news_count_before = os.environ.get("MIN_NEWS_COUNT", "未设置")
+    max_news_count_before = os.environ.get("MAX_NEWS_COUNT", "未设置")
+    
     print(f"INCLUDE_WECHAT = {include_wechat_before}")
+    print(f"RAW_SEARCH_COUNT = {raw_search_count_before}")
+    print(f"MIN_NEWS_SCORE = {min_news_score_before}")
+    print(f"MIN_NEWS_COUNT = {min_news_count_before}")
+    print(f"MAX_NEWS_COUNT = {max_news_count_before}")
     
     print_section("加载.env文件")
     loaded = load_dotenv(dotenv_path=dotenv_path, override=True)
@@ -50,17 +61,37 @@ def main():
     
     print_section("当前环境变量 (加载.env后)")
     include_wechat_after = os.environ.get("INCLUDE_WECHAT", "未设置")
+    raw_search_count_after = os.environ.get("RAW_SEARCH_COUNT", "未设置")
+    min_news_score_after = os.environ.get("MIN_NEWS_SCORE", "未设置")
+    min_news_count_after = os.environ.get("MIN_NEWS_COUNT", "未设置")
+    max_news_count_after = os.environ.get("MAX_NEWS_COUNT", "未设置")
+    
     print(f"INCLUDE_WECHAT = {include_wechat_after}")
+    print(f"RAW_SEARCH_COUNT = {raw_search_count_after}")
+    print(f"MIN_NEWS_SCORE = {min_news_score_after}")
+    print(f"MIN_NEWS_COUNT = {min_news_count_after}")
+    print(f"MAX_NEWS_COUNT = {max_news_count_after}")
     
     # 检查是否有变化
-    if include_wechat_before != include_wechat_after:
-        print(f"\n环境变量已更新: {include_wechat_before} -> {include_wechat_after}")
-    else:
-        print(f"\n环境变量无变化，保持为: {include_wechat_after}")
+    vars_to_check = [
+        ("INCLUDE_WECHAT", include_wechat_before, include_wechat_after),
+        ("RAW_SEARCH_COUNT", raw_search_count_before, raw_search_count_after),
+        ("MIN_NEWS_SCORE", min_news_score_before, min_news_score_after),
+        ("MIN_NEWS_COUNT", min_news_count_before, min_news_count_after),
+        ("MAX_NEWS_COUNT", max_news_count_before, max_news_count_after)
+    ]
+    
+    for name, before, after in vars_to_check:
+        if before != after:
+            print(f"\n环境变量 {name} 已更新: {before} -> {after}")
+        else:
+            print(f"\n环境变量 {name} 无变化，保持为: {after}")
     
     print_section("直接设置环境变量测试")
     os.environ["INCLUDE_WECHAT"] = "false"
+    os.environ["RAW_SEARCH_COUNT"] = "50"
     print(f"直接设置后 INCLUDE_WECHAT = {os.environ.get('INCLUDE_WECHAT')}")
+    print(f"直接设置后 RAW_SEARCH_COUNT = {os.environ.get('RAW_SEARCH_COUNT')}")
     
     # 验证环境变量处理逻辑
     print_section("环境变量处理逻辑验证")

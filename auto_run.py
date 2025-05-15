@@ -31,7 +31,11 @@ def main():
     # 强制设置某些环境变量，覆盖.env文件的值
     override_vars = {
         "INCLUDE_SOURCE": "false",
-        "INCLUDE_LINK": "false"
+        "INCLUDE_LINK": "false",
+        "RAW_SEARCH_COUNT": "30",
+        "MIN_NEWS_COUNT": "7",
+        "MAX_NEWS_COUNT": "15",
+        "TARGET_NEWS_COUNT": "10"
     }
     
     # 应用覆盖值
@@ -88,6 +92,21 @@ def main():
             end_time = datetime.now().strftime("%Y%m%d_%H%M%S")
             f.write(f"\n=== 结束运行时间: {end_time} ===\n")
             f.write(f"返回码: {process.returncode}\n")
+            
+            # 记录生成的文件
+            today_date = datetime.now().strftime("%Y%m%d")
+            report_file = f"Outputs/ai_news_report_{today_date}.md"
+            data_file = f"Outputs/raw_news_data_{today_date}.json"
+            
+            if os.path.exists(report_file):
+                f.write(f"生成报告文件: {report_file}\n")
+            else:
+                f.write(f"警告: 未找到报告文件 {report_file}\n")
+                
+            if os.path.exists(data_file):
+                f.write(f"生成数据文件: {data_file}\n")
+            else:
+                f.write(f"警告: 未找到数据文件 {data_file}\n")
         
         return process.returncode
     
