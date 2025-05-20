@@ -1,4 +1,5 @@
 @echo off
+chcp 65001 > nul
 echo 开始执行AI新闻自动生成任务 - %date% %time%
 
 :: 切换到脚本所在目录

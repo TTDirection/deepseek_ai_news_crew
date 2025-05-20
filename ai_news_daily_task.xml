@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-16"?>
 <Task version="1.4" xmlns="http://schemas.microsoft.com/windows/2004/02/mit/task">
   <RegistrationInfo>
-    <Date>2023-04-28T09:00:00</Date>
+    <Date>2025-04-28T09:00:00</Date>
     <Author>AI新闻自动化</Author>
     <Description>工作日（周一到周五）早上9点和周末（周六日）中午12点自动生成AI热点新闻报告并发送至企业微信</Description>
     <URI>\AI新闻日报任务</URI>
@@ -9,7 +9,7 @@
   <Triggers>
     <!-- 工作日（周一到周五）早上9点运行 -->
     <CalendarTrigger>
-      <StartBoundary>2023-04-28T09:00:00</StartBoundary>
+      <StartBoundary>2025-04-28T09:00:00</StartBoundary>
       <ExecutionTimeLimit>PT1H</ExecutionTimeLimit>
       <Enabled>true</Enabled>
       <ScheduleByWeek>
@@ -25,7 +25,7 @@
     </CalendarTrigger>
     <!-- 周末（周六日）中午12点运行 -->
     <CalendarTrigger>
-      <StartBoundary>2023-04-28T12:00:00</StartBoundary>
+      <StartBoundary>2025-04-28T12:00:00</StartBoundary>
       <ExecutionTimeLimit>PT1H</ExecutionTimeLimit>
       <Enabled>true</Enabled>
       <ScheduleByWeek>

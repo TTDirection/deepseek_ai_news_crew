@@ -69,7 +69,8 @@ def main():
             stdout=subprocess.PIPE, 
             stderr=subprocess.PIPE,
             text=True,
-            encoding="utf-8"
+            encoding="utf-8",
+            env=dict(os.environ, PYTHONIOENCODING="utf-8")  # 添加这行
         )
         
         # 实时获取输出并同时写入日志
