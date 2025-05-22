@@ -10,6 +10,33 @@ import subprocess
 import shutil
 from datetime import datetime
 from dotenv import load_dotenv
+from text_to_speech import convert_text_to_speech
+
+def send_to_wechat(report_file, mp3_file):
+    """
+    使用企业微信API直接发送文本和MP3文件
+    
+    Args:
+        report_file: 报告文件路径
+        mp3_file: MP3文件路径
+    """
+    try:
+        # 读取报告内容
+        with open(report_file, 'r', encoding='utf-8') as f:
+            report_content = f.read()
+        
+        # 导入企业微信发送工具
+        from src.deepseek_ai_news_crew.tools.wechat_tool import WechatMessageTool
+        
+        # 创建工具实例并发送
+        wechat_tool = WechatMessageTool()
+        result = wechat_tool._run(content=report_content, mp3_file=mp3_file)
+        
+        print(f"企业微信发送结果: {result}")
+        return True
+    except Exception as e:
+        print(f"发送到企业微信失败: {str(e)}")
+        return False
 
 def main():
     """主函数，执行crewai并记录日志"""
@@ -70,7 +97,7 @@ def main():
             stderr=subprocess.PIPE,
             text=True,
             encoding="utf-8",
-            env=dict(os.environ, PYTHONIOENCODING="utf-8")  # 添加这行
+            env=dict(os.environ, PYTHONIOENCODING="utf-8")
         )
         
         # 实时获取输出并同时写入日志
@@ -108,12 +135,51 @@ def main():
         # 带日期的目标文件路径
         dated_report_file = os.path.join(outputs_dir, f"ai_news_report_{today_date}.md")
         dated_data_file = os.path.join(outputs_dir, f"raw_news_data_{today_date}.json")
+        dated_mp3_file = os.path.join(outputs_dir, f"ai_news_report_{today_date}.mp3")
         
         # 复制文件并记录到日志
         with open(log_file, "a", encoding="utf-8") as f:
             if os.path.exists(original_report_file):
                 shutil.copy2(original_report_file, dated_report_file)
                 f.write(f"生成报告文件: {dated_report_file}\n")
+                
+                # 生成语音文件
+                try:
+                    f.write(f"开始生成语音文件...\n")
+                    # 检查gtts是否已安装
+                    try:
+                        import gtts
+                        f.write("gtts包已安装\n")
+                    except ImportError:
+                        f.write("错误: gtts包未安装，尝试安装...\n")
+                        subprocess.check_call([sys.executable, "-m", "pip", "install", "gtts"])
+                        f.write("gtts包安装完成\n")
+                    
+                    # 确保输出目录存在
+                    if not os.path.exists(outputs_dir):
+                        os.makedirs(outputs_dir)
+                        f.write(f"创建输出目录: {outputs_dir}\n")
+                    
+                    # 生成MP3文件
+                    success = convert_text_to_speech(dated_report_file, dated_mp3_file)
+                    if success:
+                        f.write(f"成功生成语音文件: {dated_mp3_file}\n")
+                        
+                        # 发送到企业微信
+                        if include_wechat.lower() == "true":
+                            f.write(f"开始发送到企业微信...\n")
+                            send_success = send_to_wechat(dated_report_file, dated_mp3_file)
+                            if send_success:
+                                f.write(f"成功发送到企业微信\n")
+                            else:
+                                f.write(f"发送到企业微信失败\n")
+                        else:
+                            f.write(f"INCLUDE_WECHAT设置为{include_wechat}，跳过企业微信发送\n")
+                    else:
+                        f.write(f"生成语音文件失败\n")
+                except Exception as e:
+                    f.write(f"生成语音文件或发送到企业微信时出错: {str(e)}\n")
+                    print(f"错误: {str(e)}")
             else:
                 f.write(f"警告: 未找到报告文件 {original_report_file}\n")
                 
