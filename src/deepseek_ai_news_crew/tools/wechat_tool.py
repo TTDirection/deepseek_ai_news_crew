@@ -8,6 +8,9 @@ from datetime import datetime
 from gtts import gTTS
 import logging
 import pathlib
+from pathlib import Path
+import time
+import asyncio
 
 # 设置日志
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -81,7 +84,6 @@ class WechatMessageTool(BaseTool):
             # 构建webhook完整URL
             webhook_url = f"https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key={webhook_key}"
 
-            '''
             # 清理Markdown格式
             logger.info("清理Markdown格式")
             if content.startswith("```markdown") and content.endswith("```"):
@@ -89,19 +91,26 @@ class WechatMessageTool(BaseTool):
             elif content.startswith("```") and content.endswith("```"):
                 content = content[3:-3].strip()
 
-            clean_content = re.sub(r'^#{1,6}\s*', '', content, flags=re.MULTILINE)
-            clean_content = re.sub(r'\n\s*\n', '\n', clean_content).strip()
+            # 保留标题的Markdown格式
+            lines = content.splitlines()
+            processed_lines = []
+            for line in lines:
+                # 如果是标题行（以#开头），保持原样
+                if line.strip().startswith('#'):
+                    processed_lines.append(line)
+                # 如果是【AI日报】开头的行，添加#前缀
+                elif line.strip().startswith('【AI日报】'):
+                    processed_lines.append(f"# {line}")
+                else:
+                    processed_lines.append(line)
+            
+            clean_content = "\n".join(processed_lines)
             logger.info(f"清理后内容长度: {len(clean_content)} 字符")
 
             if not clean_content:
                 logger.error("清理后的内容为空")
                 return "清理后的内容为空，无法发送到企业微信"
-            '''
-            clean_content = content
-            lines = clean_content.splitlines()
-            if lines and lines[0].startswith("【AI日报】"):
-                lines[0] = f"#{lines[0]}"
-            clean_content = "\n".join(lines)
+
             # 截断过长内容（企业微信消息有4096字节限制）
             max_length = 4000
             if len(clean_content.encode('utf-8')) > max_length:
@@ -130,26 +139,66 @@ class WechatMessageTool(BaseTool):
             # 如果没有提供MP3文件，自动生成
             if not mp3_file:
                 today_str = datetime.now().strftime("%Y%m%d")
-                mp3_file = outputs_dir / f"ai_news_report_{today_str}.mp3"
-                logger.info(f"未提供MP3文件，将生成: {mp3_file}")
+                mp3_file = outputs_dir / f"ai_news_report_{today_str}.wav"
+                logger.info(f"未提供语音文件，将生成: {mp3_file}")
 
                 try:
-                    logger.info("开始生成MP3文件")
+                    logger.info("开始生成语音文件")
+                    '''
                     # 清理 Markdown 格式
                     clean_text = self.clean_markdown(clean_content)
                     # 预处理中文文本，优化断句
                     processed_text = self.preprocess_for_chinese(clean_text)
-                    tts = gTTS(text=processed_text, lang='zh-cn', slow=False)
-                    tts.save(str(mp3_file))  # 转换为字符串以兼容gTTS
-                    logger.info(f"成功生成MP3文件: {mp3_file}")
+                    '''
+                    # 使用字节跳动TTS服务生成语音
+                    from text2voice_BytedanceTTS import BytedanceTTS
+                    
+                    # 创建TTS对象并生成语音
+                    tts = BytedanceTTS()
+                    output_path = tts.generate(clean_content, output_file=str(mp3_file))
+                    
+                    if output_path and os.path.exists(output_path):
+                        logger.info(f"成功生成WAV文件: {output_path}")
+                        # 更新mp3_file变量为wav文件路径
+                        mp3_file = Path(output_path)
+                        
+                        # 等待文件完全写入
+                        max_wait = 300  # 最大等待300秒
+                        wait_interval = 1  # 每1秒检查一次
+                        waited = 0
+                        last_size = -1
+                        stable_count = 0
+                        
+                        while waited < max_wait:
+                            current_size = os.path.getsize(output_path)
+                            if current_size > 0:
+                                if current_size == last_size:
+                                    stable_count += 1
+                                    if stable_count >= 3:  # 连续3次大小相同，认为文件已写入完成
+                                        logger.info(f"WAV文件已完全生成，大小: {current_size} 字节")
+                                        break
+                                else:
+                                    stable_count = 0
+                                    logger.info(f"WAV文件正在生成中，当前大小: {current_size} 字节")
+                            last_size = current_size
+                            time.sleep(wait_interval)
+                            waited += wait_interval
+                            logger.info(f"等待WAV文件生成完成... ({waited:.1f}秒)")
+                        
+                        if waited >= max_wait:
+                            logger.error("等待WAV文件生成超时")
+                            return "文本消息准备发送，但WAV文件生成超时"
+                    else:
+                        logger.error("生成WAV文件失败")
+                        return "文本消息准备发送，但生成WAV文件失败"
                 except Exception as e:
-                    logger.error(f"生成MP3文件失败: {str(e)}")
-                    return f"文本消息准备发送，但生成MP3文件失败: {str(e)}"
+                    logger.error(f"生成语音文件失败: {str(e)}")
+                    return f"文本消息准备发送，但生成语音文件失败: {str(e)}"
 
-            # 验证MP3文件是否存在
+            # 验证语音文件是否存在
             if not os.path.exists(mp3_file):
-                logger.error(f"MP3文件不存在: {mp3_file}")
-                return f"文本消息准备发送，但MP3文件不存在: {mp3_file}"
+                logger.error(f"语音文件不存在: {mp3_file}")
+                return f"文本消息准备发送，但语音文件不存在: {mp3_file}"
 
             # 构建payload - 使用markdown格式
             payload = {
