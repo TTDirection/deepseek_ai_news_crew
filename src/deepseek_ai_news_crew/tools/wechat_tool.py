@@ -147,18 +147,24 @@ class WechatMessageTool(BaseTool):
 
                 try:
                     logger.info("开始生成语音文件")
-                    '''
-                    # 清理 Markdown 格式
-                    clean_text = self.clean_markdown(clean_content)
-                    # 预处理中文文本，优化断句
-                    processed_text = self.preprocess_for_chinese(clean_text)
-                    '''
-                    # 使用字节跳动TTS服务生成语音
-                    from text2voice_BytedanceTTS import BytedanceTTS
+                    # 从环境变量读取语音生成方式
+                    use_bytedance_tts = os.getenv("USE_BYTEDANCE_TTS", "false").lower() == "true"
                     
-                    # 创建TTS对象并生成语音
-                    tts = BytedanceTTS()
-                    output_path = tts.generate(clean_content, output_file=str(mp3_file))
+                    if use_bytedance_tts:
+                        # 使用字节跳动TTS服务生成语音
+                        from text2voice_BytedanceTTS import BytedanceTTS
+                        tts = BytedanceTTS()
+                        output_path = tts.generate(clean_content, output_file=str(mp3_file))
+                    else:
+                        # 使用Google TTS生成语音
+                        from gtts import gTTS
+                        # 清理 Markdown 格式
+                        clean_text = self.clean_markdown(clean_content)
+                        # 预处理中文文本，优化断句
+                        processed_text = self.preprocess_for_chinese(clean_text)
+                        tts = gTTS(text=processed_text, lang='zh-cn')
+                        output_path = str(mp3_file)
+                        tts.save(output_path)
                     
                     if output_path and os.path.exists(output_path):
                         logger.info(f"成功生成WAV文件: {output_path}")
