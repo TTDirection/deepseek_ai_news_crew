@@ -98,9 +98,11 @@ class WechatMessageTool(BaseTool):
                 # 如果是标题行（以#开头），保持原样
                 if line.strip().startswith('#'):
                     processed_lines.append(line)
-                # 如果是【AI日报】开头的行，添加#前缀
+                # 如果是【AI日报】开头的行，添加#前缀和当前日期
                 elif line.strip().startswith('【AI日报】'):
-                    processed_lines.append(f"# {line}")
+                    today = datetime.now()
+                    date_str = today.strftime("%Y年%m月%d日")
+                    processed_lines.append(f"# 【AI日报】{date_str}")
                 else:
                     processed_lines.append(line)
             
@@ -138,8 +140,9 @@ class WechatMessageTool(BaseTool):
 
             # 如果没有提供MP3文件，自动生成
             if not mp3_file:
-                today_str = datetime.now().strftime("%Y%m%d")
-                mp3_file = outputs_dir / f"ai_news_report_{today_str}.wav"
+                today = datetime.now()
+                date_str = today.strftime("%Y年%m月%d日")
+                mp3_file = outputs_dir / f"【AI日报】{date_str}.wav"
                 logger.info(f"未提供语音文件，将生成: {mp3_file}")
 
                 try:

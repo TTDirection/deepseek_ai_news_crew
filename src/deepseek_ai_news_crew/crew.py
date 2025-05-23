@@ -231,7 +231,8 @@ class DeepseekAiNewsCrew():
 
         try:
             # 获取当前日期，用于文件名
-            today_str = datetime.now().strftime("%Y%m%d")
+            today = datetime.now()
+            today_str = today.strftime("%Y%m%d")
             report_path = f"Outputs/ai_news_report_{today_str}.md"
             print(f"尝试读取报告文件: {report_path}")
             
@@ -264,8 +265,31 @@ class DeepseekAiNewsCrew():
             # 使用企业微信工具发送
             wechat_tool = WechatMessageTool()
             print("正在发送到企业微信...")
-            result = wechat_tool._run(content=content, webhook_key=self.wechat_webhook_key)
-            print(f"企业微信发送结果: {result}")
+            
+            # 发送文本内容
+            text_result = wechat_tool._run(content=content, webhook_key=self.wechat_webhook_key)
+            print(f"企业微信文本发送结果: {text_result}")
+            
+            # 生成并发送音频文件
+            try:
+                # 生成音频文件
+                from text2voice_BytedanceTTS import BytedanceTTS
+                tts = BytedanceTTS()
+                audio_file = f"Outputs/ai_news_report_{today_str}.wav"
+                output_path = tts.generate(content, output_file=audio_file)
+                
+                if output_path and os.path.exists(output_path):
+                    print(f"成功生成音频文件: {output_path}")
+                    # 发送音频文件
+                    audio_result = wechat_tool._run(content=content, webhook_key=self.wechat_webhook_key, audio_file=output_path)
+                    print(f"企业微信音频发送结果: {audio_result}")
+                else:
+                    print("音频文件生成失败")
+            except Exception as e:
+                print(f"生成或发送音频文件时发生错误: {str(e)}")
+                import traceback
+                print(f"错误详情: {traceback.format_exc()}")
+            
         except Exception as e:
             print(f"发送到企业微信时发生错误: {str(e)}")
             import traceback
@@ -278,12 +302,18 @@ class DeepseekAiNewsCrew():
     @crew
     def crew(self) -> Crew:
         """Creates the DeepseekAiNewsCrew crew"""
-        # 获取当前日期和过去10天的日期用于时间范围
-        today = datetime.now()
-        days_ago = today - timedelta(days=10)  # 使用10天前的日期
-        yesterday_9am = days_ago.replace(hour=9, minute=0, second=0, microsecond=0)
-        today_9am = today.replace(hour=9, minute=0, second=0, microsecond=0)
-          
+        # 获取当前日期和时间
+        now = datetime.now()
+        today = now.date()
+        
+        # 设置时间范围：从昨天早上9点到当前时间
+        yesterday_9am = datetime.combine(today - timedelta(days=1), datetime.min.time().replace(hour=9))
+        current_time = now
+        
+        # 格式化日期字符串
+        today_str = today.strftime("%Y-%m-%d")
+        yesterday_str = (today - timedelta(days=1)).strftime("%Y-%m-%d")
+        
         # 定义AI相关关键词列表，按类别组织
         ai_keywords = {
             "大模型": [
@@ -392,19 +422,19 @@ class DeepseekAiNewsCrew():
         }
 
         return Crew(
-            agents=self.agents, # Automatically created by the @agent decorator
-            tasks=self.tasks, # Automatically created by the @task decorator
+            agents=self.agents,
+            tasks=self.tasks,
             process=Process.sequential,
             verbose=True,
             inputs={
                 "ai_keywords": ai_keywords,
                 "block_keywords": block_keywords,
-                "today_date": today.strftime("%Y-%m-%d"),
-                "yesterday_date": today.strftime("%Y-%m-%d"),
+                "today_date": today_str,
+                "yesterday_date": yesterday_str,
                 "time_range_start": yesterday_9am.strftime("%Y-%m-%d %H:%M:%S"),
-                "time_range_end": today_9am.strftime("%Y-%m-%d %H:%M:%S"),
+                "time_range_end": current_time.strftime("%Y-%m-%d %H:%M:%S"),
                 "include_source": os.getenv("INCLUDE_SOURCE", "true").lower() == "true",
                 "include_link": os.getenv("INCLUDE_LINK", "true").lower() == "true",
-                "news_scoring": news_scoring  # 添加新闻评分配置
+                "news_scoring": news_scoring
             }
         )

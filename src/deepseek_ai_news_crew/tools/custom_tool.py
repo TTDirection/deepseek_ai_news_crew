@@ -422,57 +422,73 @@ class DiversityFilterTool(BaseTool):
     def _run(self, news_list: str, max_per_company: int = 3) -> str:
         try:
             # 解析新闻列表
-            news_items = json.loads(news_list)
+            news_data = json.loads(news_list)
+            if not isinstance(news_data, list):
+                return "输入格式错误：新闻列表必须是JSON数组格式"
             
-            # 主要公司和技术关键词，用于检测新闻主题
-            companies = [
-                "openai", "microsoft", "微软", "anthropic", "google", "谷歌", "meta", "facebook", 
-                "amazon", "亚马逊", "nvidia", "英伟达", "apple", "苹果", "deepseek", "百度", "阿里", 
-                "腾讯", "华为", "讯飞", "智谱", "文心一言", "豆包", "通义千问", "gemini", "gpt", "llama", 
-                "claude", "mistral"
-            ]
-            
-            # 用于存储每个关键词对应的新闻
-            company_news = {company: [] for company in companies}
-            other_news = []  # 存储不属于主要公司的新闻
-            
-            # 将新闻分类
-            for news in news_items:
+            # 按公司/主题分组
+            company_news = {}
+            for news in news_data:
+                # 从标题中提取公司/主题名称
                 title = news.get("标题", "").lower()
-                summary = news.get("摘要", "").lower() if "摘要" in news else ""
-                content = title + " " + summary
+                company = None
                 
-                # 检查新闻属于哪个公司/技术
-                matched = False
-                for company in companies:
-                    if company.lower() in content:
-                        company_news[company].append(news)
-                        matched = True
+                # 检查标题中是否包含公司名称
+                for company_name in ["openai", "google", "microsoft", "meta", "anthropic", "deepmind", 
+                                   "百度", "阿里", "腾讯", "华为", "字节跳动", "商汤", "智谱", "讯飞"]:
+                    if company_name.lower() in title:
+                        company = company_name
                         break
                 
-                # 如果不属于任何主要公司，放入其他新闻列表
-                if not matched:
-                    other_news.append(news)
+                # 如果没有找到公司名称，使用标题的前几个词作为主题
+                if not company:
+                    words = title.split()
+                    company = " ".join(words[:2]) if len(words) > 1 else words[0]
+                
+                if company not in company_news:
+                    company_news[company] = []
+                company_news[company].append(news)
             
-            # 为每个公司选择最重要/最新的新闻
-            diverse_news = []
+            # 过滤重复内容
+            filtered_news = []
+            seen_content = set()  # 用于跟踪已处理的内容
+            seen_titles = set()   # 用于跟踪已处理的标题
+            seen_snippets = set() # 用于跟踪已处理的摘要
             
-            # 首先加入其他新闻
-            diverse_news.extend(other_news)
-            
-            # 然后按照每个公司添加有限数量的新闻
             for company, news_list in company_news.items():
-                # 根据新闻的重要性或日期排序
-                sorted_news = sorted(news_list, key=lambda x: x.get("发布时间", "未知"), reverse=True)
-                diverse_news.extend(sorted_news[:max_per_company])
+                # 按发布时间排序，最新的在前
+                sorted_news = sorted(news_list, 
+                                   key=lambda x: x.get("发布时间", ""), 
+                                   reverse=True)
+                
+                # 限制每个公司的新闻数量
+                for news in sorted_news[:max_per_company]:
+                    # 检查内容是否重复
+                    title = news.get("标题", "").lower()
+                    snippet = news.get("摘要", "").lower()
+                    
+                    # 创建内容指纹
+                    content_fingerprint = f"{title}|{snippet}"
+                    
+                    # 检查标题是否重复（忽略大小写和标点符号）
+                    clean_title = ''.join(c.lower() for c in title if c.isalnum())
+                    
+                    # 检查摘要是否重复（忽略大小写和标点符号）
+                    clean_snippet = ''.join(c.lower() for c in snippet if c.isalnum())
+                    
+                    # 如果内容不重复、标题不重复且摘要不重复，添加到结果中
+                    if (content_fingerprint not in seen_content and 
+                        clean_title not in seen_titles and 
+                        clean_snippet not in seen_snippets):
+                        seen_content.add(content_fingerprint)
+                        seen_titles.add(clean_title)
+                        seen_snippets.add(clean_snippet)
+                        filtered_news.append(news)
             
-            # 根据重要性再次排序
-            final_news = sorted(diverse_news, key=lambda x: len(x.get("摘要", "")), reverse=True)
+            # 按发布时间排序
+            filtered_news.sort(key=lambda x: x.get("发布时间", ""), reverse=True)
             
-            if not final_news:
-                return "过滤后没有剩余新闻。"
-            
-            return json.dumps(final_news, ensure_ascii=False, indent=2)
+            return json.dumps(filtered_news, ensure_ascii=False, indent=2)
             
         except Exception as e:
-            return f"多样性过滤过程中发生错误: {str(e)}"
+            return f"过滤新闻时发生错误: {str(e)}"
