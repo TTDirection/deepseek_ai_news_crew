@@ -4,3 +4,8 @@ __pycache__/
 logs/
 Outputs/
 text_to_speech.log
+
+# 忽略 aigc 目录下除了 .py 文件以外的所有文件
+aigc/*
+!aigc/*.py
+!aigc/**/*.py
