@@ -26,7 +26,7 @@ API_CONFIG = {
     "image_model": "doubao-seedream-3-0-t2i-250415",
     "video_model": "doubao-seedance-1-0-lite-i2v-250428",
     "tts_url": "http://172.31.10.71:8000/api/v1/bytedance/tts",
-    "voice_type": "zh_female_roumeinvyou_emo_v2_mars_bigtts"
+    "voice_type": "ICL_zh_female_zhixingwenwan_tob"
 }
 
 # 输出目录配置
@@ -86,7 +86,7 @@ VIDEO_CONFIG = {
 
 # 更加写实的提示词模板配置
 PROMPT_TEMPLATES = {
-    "image_generation": """作为专业的摄影师和视觉艺术总监，请将以下AI新闻内容转换为极其真实的摄影场景描述。
+    "image_generation": """作为专业的摄影师和视觉艺术总监，请将以下AI新闻内容转换为极其真实的摄影场景描述。并限制描述的长度，避免超过200字。
 
 要求：
 1. 采用纪实摄影风格，画面真实自然，具有新闻摄影质感
@@ -96,12 +96,13 @@ PROMPT_TEMPLATES = {
 5. 色彩真实自然：冷暖色调平衡，符合现代办公环境的色彩搭配
 6. 避免夸张特效，追求专业新闻摄影的质感
 7. 场景应该像真实拍摄的新闻照片一样可信
+8.减少对显示器以及其他带有文字的描述，注重场景，因为该模型对文字描述不敏感
 
 新闻内容：{news_content}
 
 请用专业摄影术语描述一个真实可拍摄的场景，仿佛是为新闻报道拍摄的照片：""",
 
-    "video_generation": """作为专业的纪录片导演，请将以下AI新闻内容转换为真实的视频拍摄场景描述。
+    "video_generation": """作为专业的纪录片导演，请将以下AI新闻内容转换为真实的视频拍摄场景描述。并限制描述的长度，避免超过200字。
 
 要求：
 1. 时长：{duration}秒的真实纪录片风格画面
@@ -112,6 +113,7 @@ PROMPT_TEMPLATES = {
 6. 细节展现：键盘敲击、屏幕内容变化、人员走动等真实细节
 7. 色彩风格：真实自然的色调，符合现代办公环境
 8. 避免特效和动画，追求纪录片的真实质感
+9.减少对显示器以及其他带有文字的描述，注重场景，因为该模型对文字描述不敏感
 
 新闻内容：{news_content}
 

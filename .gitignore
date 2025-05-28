@@ -9,3 +9,4 @@ ai_news_run.log
 aigc/*
 !aigc/*.py
 !aigc/**/*.py
+output/
