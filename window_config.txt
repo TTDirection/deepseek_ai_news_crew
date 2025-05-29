@@ -1,0 +1,9 @@
+# 删除现有任务（如果存在）
+schtasks /delete /tn "AI新闻日报任务_工作日" /f
+schtasks /delete /tn "AI新闻日报任务_周末" /f
+
+# 创建工作日任务（使用完整路径和最高权限）
+schtasks /create /tn "AI新闻日报任务_工作日" /tr "C:\Windows\System32\cmd.exe /c D:\AI\deepseek_ai_news_crew\run_ai_news.bat" /sc weekly /d MON,TUE,WED,THU,FRI /st 09:00 /ru SYSTEM /rl HIGHEST /f
+
+# 创建周末任务
+schtasks /create /tn "AI新闻日报任务_周末" /tr "C:\Windows\System32\cmd.exe /c D:\AI\deepseek_ai_news_crew\run_ai_news.bat" /sc weekly /d SAT,SUN /st 12:00 /ru SYSTEM /rl HIGHEST /f

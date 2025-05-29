@@ -268,27 +268,7 @@ class DeepseekAiNewsCrew():
             
             # 发送文本内容
             text_result = wechat_tool._run(content=content, webhook_key=self.wechat_webhook_key)
-            print(f"企业微信文本发送结果: {text_result}")
-            
-            # 生成并发送音频文件
-            try:
-                # 生成音频文件
-                from text2voice_BytedanceTTS import BytedanceTTS
-                tts = BytedanceTTS()
-                audio_file = f"Outputs/ai_news_report_{today_str}.wav"
-                output_path = tts.generate(content, output_file=audio_file)
-                
-                if output_path and os.path.exists(output_path):
-                    print(f"成功生成音频文件: {output_path}")
-                    # 发送音频文件
-                    audio_result = wechat_tool._run(content=content, webhook_key=self.wechat_webhook_key, audio_file=output_path)
-                    print(f"企业微信音频发送结果: {audio_result}")
-                else:
-                    print("音频文件生成失败")
-            except Exception as e:
-                print(f"生成或发送音频文件时发生错误: {str(e)}")
-                import traceback
-                print(f"错误详情: {traceback.format_exc()}")
+            print(f"企业微信文本发送结果: {text_result}")            
             
         except Exception as e:
             print(f"发送到企业微信时发生错误: {str(e)}")
@@ -311,8 +291,8 @@ class DeepseekAiNewsCrew():
         current_time = now
         
         # 格式化日期字符串
-        today_str = today.strftime("%Y-%m-%d")
-        yesterday_str = (today - timedelta(days=1)).strftime("%Y-%m-%d")
+        today_str = today.strftime("%Y年%m月%d日")  # 用于报告标题
+        yesterday_str = (today - timedelta(days=1)).strftime("%Y年%m月%d日")  # 使用昨天日期作为新闻时间范围
         
         # 定义AI相关关键词列表，按类别组织
         ai_keywords = {
@@ -429,8 +409,8 @@ class DeepseekAiNewsCrew():
             inputs={
                 "ai_keywords": ai_keywords,
                 "block_keywords": block_keywords,
-                "today_date": today_str,
-                "yesterday_date": yesterday_str,
+                "today_date": today_str,  # 使用当前日期作为报告标题
+                "yesterday_date": yesterday_str,  # 使用昨天日期作为新闻时间范围
                 "time_range_start": yesterday_9am.strftime("%Y-%m-%d %H:%M:%S"),
                 "time_range_end": current_time.strftime("%Y-%m-%d %H:%M:%S"),
                 "include_source": os.getenv("INCLUDE_SOURCE", "true").lower() == "true",
