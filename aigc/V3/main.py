@@ -1,7 +1,8 @@
-from TotalVideoWithLLM import LongNewsProcessor
+from news_processor import LongNewsProcessor
 from video_concatenator import VideoConcatenator
+import concurrent.futures
 
-def process_and_concatenate_news(news_text, project_name=None, auto_concatenate=True):
+def process_and_concatenate_news(news_text, project_name=None, auto_concatenate=True, max_workers=4):
     """
     Process a news text to generate video segments and then concatenate them
     
@@ -9,6 +10,7 @@ def process_and_concatenate_news(news_text, project_name=None, auto_concatenate=
         news_text: The long news text to process
         project_name: Optional custom name for the project
         auto_concatenate: Whether to automatically concatenate videos after generation
+        max_workers: Maximum number of worker threads for parallel processing
         
     Returns:
         dict: A dictionary containing results of both processes
@@ -19,13 +21,15 @@ def process_and_concatenate_news(news_text, project_name=None, auto_concatenate=
         max_audio_duration=4.8     # Maximum audio duration in seconds
     )
     
-    # Process the news
+    # Process the news with parallel segment processing
     result = processor.process_long_news(
         news_text,
         project_name=project_name,
         calibrate=True,             # Whether to calibrate speech rate
         add_subtitles=True,         # Add subtitles to videos
-        subtitle_format="srt"       # Subtitle format (srt, ass, vtt)
+        subtitle_format="srt",      # Subtitle format (srt, ass, vtt)
+        parallel_processing=True,   # Enable parallel segment processing
+        max_workers=max_workers     # Number of worker threads
     )
     
     # Get output information
@@ -36,7 +40,7 @@ def process_and_concatenate_news(news_text, project_name=None, auto_concatenate=
     print(f"Successfully generated {segments_count} video segments")
     print(f"Videos directory: {segments_dir}")
     
-    # Step 2: Concatenate the generated videos
+    # Step 2: Concatenate the generated videos (sequential, since it's fast)
     if auto_concatenate and segments_count > 0:
         print(f"\n=== Starting video concatenation ===")
         concatenator = VideoConcatenator(output_dir="output/concatenated")
@@ -65,6 +69,8 @@ def process_and_concatenate_news(news_text, project_name=None, auto_concatenate=
 
 # Example usage
 if __name__ == "__main__":
+    import multiprocessing
+    
     long_news = """
 【AI日报】2025年05月30日
 1. 企业级AI战略加速落地！传微软与巴克莱银行签订10万份Copilot许可证
@@ -77,17 +83,21 @@ DeepSeek最新发布的R1模型升级版在全球AI领域掀起热议，多位�
 微软开源Aurora AI气象模型，该模型结合深度学习技术，能够实现精准气象预报，目前已在MSN天气应用中投入使用。同时腾讯也开源了混元语音数字人模型，显示AI开源生态持续发展。
 5. 字节跳动内部禁用Cursor等AI编程工具，用旗下Trae作为替代
 字节跳动宣布内部将禁用Cursor等第三方AI编程工具，转而使用自研的Trae工具。Trae搭载基座大模型doubao-1.5-pro，支持切换DeepSeek R1&V3，是国内首个AI原生IDE工具。
-6. ICLR 2025 | LLaVA-MoD：MoE蒸馏训练轻量化多模态大模型
-研究团队提出轻量化多模态大模型LLaVA-MoD，通过集成稀疏专家混合(MoE)架构优化模型结构，并设计两阶段蒸馏策略，在保持性能的同时显著减小模型规模，为多模态应用提供新方案。
-7. 对标Coze和Dify，Java开发的AIFlowy v1.0.4发布
-AIFlowy是基于Java开发的企业级开源AI应用开发平台，致力于为中国开发者和企业提供高效、本土化的AI工具，功能上对标字节Coze和腾讯Dify等平台，推动国内AI开发生态发展。
+
     """
     
-    # Process and concatenate
+    # 获取CPU核心数，用于确定最佳线程数
+    cpu_count = multiprocessing.cpu_count()
+    optimal_workers = max(1, min(cpu_count - 1, 8))  # 使用CPU核心数-1，但最多8个线程
+    
+    print(f"使用 {optimal_workers} 个线程进行并行处理...")
+    
+    # Process and concatenate with optimized parallel processing for segment generation
     result = process_and_concatenate_news(
         news_text=long_news,
         project_name="ai_news_demo",
-        auto_concatenate=True
+        auto_concatenate=True,
+        max_workers=optimal_workers  # 动态设置最佳线程数
     )
     
     # Print results

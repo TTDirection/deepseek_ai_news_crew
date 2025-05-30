@@ -229,7 +229,7 @@ class VideoConcatenator:
 
 def main():
     # ====== 你可以在这里修改参数 ======
-    search_dir = "/home/taotao/Desktop/PythonProject/output/long_news/final_videos"                  # 搜索目录
+    search_dir = "/home/taotao/Desktop/PythonProject/deepseek_ai_news_crew/output/long_news/final_videos"                  # 搜索目录
     output_dir = "output/concatenated"     # 输出目录
     output_filename = None                 # 输出文件名（None为自动生成）
     pattern = "*_final.mp4"                # 匹配模式

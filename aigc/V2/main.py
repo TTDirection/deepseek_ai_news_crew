@@ -1,4 +1,4 @@
-from news_processor import LongNewsProcessor
+from TotalVideoWithLLM import LongNewsProcessor
 from video_concatenator import VideoConcatenator
 
 def process_and_concatenate_news(news_text, project_name=None, auto_concatenate=True):
@@ -73,14 +73,6 @@ if __name__ == "__main__":
 DeepSeek最新发布的R1模型升级版在全球AI领域掀起热议，多位国际科技大佬及行业高管盛赞其技术突破。实测显示该模型在多项基准测试中表现优异，标志着中国AI公司在技术上的重大进步。
 3. 云从科技多模态大模型「CongRong-v2.0」登顶全球榜单
 云从科技自主研发的「从容大模型」在国际评测平台OpenCompass最新全球多模态榜单中，以80.7分的综合成绩登顶榜首。这一成绩标志着中国在多模态AI领域的技术实力获得国际认可。
-4. 微软开源Aurora AI气象模型
-微软开源Aurora AI气象模型，该模型结合深度学习技术，能够实现精准气象预报，目前已在MSN天气应用中投入使用。同时腾讯也开源了混元语音数字人模型，显示AI开源生态持续发展。
-5. 字节跳动内部禁用Cursor等AI编程工具，用旗下Trae作为替代
-字节跳动宣布内部将禁用Cursor等第三方AI编程工具，转而使用自研的Trae工具。Trae搭载基座大模型doubao-1.5-pro，支持切换DeepSeek R1&V3，是国内首个AI原生IDE工具。
-6. ICLR 2025 | LLaVA-MoD：MoE蒸馏训练轻量化多模态大模型
-研究团队提出轻量化多模态大模型LLaVA-MoD，通过集成稀疏专家混合(MoE)架构优化模型结构，并设计两阶段蒸馏策略，在保持性能的同时显著减小模型规模，为多模态应用提供新方案。
-7. 对标Coze和Dify，Java开发的AIFlowy v1.0.4发布
-AIFlowy是基于Java开发的企业级开源AI应用开发平台，致力于为中国开发者和企业提供高效、本土化的AI工具，功能上对标字节Coze和腾讯Dify等平台，推动国内AI开发生态发展。
     """
     
     # Process and concatenate
