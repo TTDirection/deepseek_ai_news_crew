@@ -7,638 +7,167 @@ from typing import List, Tuple
 import json
 from MultimodalRobot import MultimodalNewsBot, TTSModule
 
+import os
+import json
+from datetime import datetime
+from typing import List, Dict, Any, Optional, Union, Tuple
+
+# 导入重构后的模块
+from text_segmenter import TextSegmenter
+from subtitle_generator import SubtitleGenerator
+from video_processor import VideoProcessor
+
 class LongNewsProcessor:
-    """长新闻处理器，支持分段播报"""
+    """长新闻处理器，整合文本分割、字幕生成和视频处理功能"""
     
-    def __init__(self, max_chars_per_segment=20, max_audio_duration=4.8):
-        """
-        初始化长新闻处理器
+    def __init__(self, max_chars_per_segment: int = 100, 
+                 estimated_chars_per_second: float = 4.0,
+                 max_audio_duration: float = 10.0,
+                 output_dir: str = "./output",
+                 llm_client = None,
+                 tts_module = None,
+                 news_bot = None):
+        """初始化长新闻处理器
         
         Args:
-            max_chars_per_segment: 每段最大字符数
+            max_chars_per_segment: 每个片段的最大字符数
+            estimated_chars_per_second: 估计的每秒朗读字符数
             max_audio_duration: 最大音频时长（秒）
+            output_dir: 输出目录
+            llm_client: LLM客户端，用于智能分割
+            tts_module: TTS模块，用于语音合成
+            news_bot: 新闻机器人，用于图像和视频生成
         """
         self.max_chars_per_segment = max_chars_per_segment
+        self.estimated_chars_per_second = estimated_chars_per_second
         self.max_audio_duration = max_audio_duration
-        self.news_bot = MultimodalNewsBot()
-        self.tts_module = TTSModule()
-        
-        # 语速估算参数（字符/秒），根据实际情况调整
-        self.estimated_chars_per_second = 5.0  # 保守估计，可以根据实际测试调整
+        self.output_dir = output_dir
+        self.llm_client = llm_client
+        self.tts_module = tts_module
+        self.news_bot = news_bot
         
         # 创建输出目录
-        self.output_dir = os.path.join("output", "long_news")
-        self.segments_dir = os.path.join(self.output_dir, "segments")
-        self.final_videos_dir = os.path.join(self.output_dir, "final_videos")
-        self.subtitles_dir = os.path.join(self.output_dir, "subtitles")
+        self.voices_dir = os.path.join(output_dir, "voices")
+        self.images_dir = os.path.join(output_dir, "images")
+        self.videos_dir = os.path.join(output_dir, "videos")
+        self.subtitles_dir = os.path.join(output_dir, "subtitles")
+        self.final_videos_dir = os.path.join(output_dir, "final_videos")
         
-        for dir_path in [self.output_dir, self.segments_dir, self.final_videos_dir, self.subtitles_dir]:
-            os.makedirs(dir_path, exist_ok=True)
+        os.makedirs(self.voices_dir, exist_ok=True)
+        os.makedirs(self.images_dir, exist_ok=True)
+        os.makedirs(self.videos_dir, exist_ok=True)
+        os.makedirs(self.subtitles_dir, exist_ok=True)
+        os.makedirs(self.final_videos_dir, exist_ok=True)
+        
+        # 初始化子模块
+        self.text_segmenter = TextSegmenter(
+            max_chars_per_segment=max_chars_per_segment,
+            estimated_chars_per_second=estimated_chars_per_second,
+            max_audio_duration=max_audio_duration,
+            llm_client=llm_client
+        )
+        
+        self.subtitle_generator = SubtitleGenerator(
+            output_dir=self.subtitles_dir
+        )
+        
+        self.video_processor = VideoProcessor(
+            output_dir=self.final_videos_dir
+        )
     
     def estimate_audio_duration(self, text: str) -> float:
-        """
-        估算文本的音频时长
+        """估计文本的音频时长
         
         Args:
-            text: 文本内容
+            text: 输入文本
             
         Returns:
-            float: 估算的音频时长（秒）
+            float: 估计的音频时长（秒）
         """
-        # 移除标点符号和空格来计算有效字符数
-        effective_chars = len(re.sub(r'[^\w]', '', text))
-        estimated_duration = effective_chars / self.estimated_chars_per_second
-        return estimated_duration
+        return self.text_segmenter.estimate_audio_duration(text)
     
-    def segment_chinese_text(self, text: str) -> List[str]:
-        """
-        改进的中文文本分词，尽量保持词语完整性
+    def calibrate_speech_rate(self, sample_text: str = None) -> float:
+        """校准语速
         
         Args:
-            text: 要分词的文本
+            sample_text: 样本文本，如果为None则使用默认样本
             
         Returns:
-            List[str]: 分词结果
+            float: 校准后的每秒字符数
         """
-        # 定义常见的中文词汇模式
-        # 这里使用简单的规则，实际应用中可以使用jieba等专业分词库
+        if sample_text is None:
+            sample_text = "这是一段用于校准语速的测试文本，包含标点符号和常见汉字。"
         
-        # 首先按标点符号分割
-        major_punctuation = r'[。！？；]'
-        sentences = re.split(f'({major_punctuation})', text)
+        print(f"使用样本文本进行语速校准: {sample_text}")
         
-        tokens = []
-        for sentence in sentences:
-            if re.match(major_punctuation, sentence):
-                # 标点符号
-                if tokens:
-                    tokens[-1] += sentence  # 附加到前一个token
-                continue
-            
-            if not sentence.strip():
-                continue
-            
-            # 进一步分割句子
-            # 按次要标点符号分割
-            minor_punctuation = r'[，、,]'
-            parts = re.split(f'({minor_punctuation})', sentence)
-            
-            for part in parts:
-                if re.match(minor_punctuation, part):
-                    if tokens:
-                        tokens[-1] += part
-                    continue
-                
-                if not part.strip():
-                    continue
-                
-                # 最后按词汇边界分割
-                word_tokens = self.split_into_words(part.strip())
-                tokens.extend(word_tokens)
-        
-        return [token for token in tokens if token.strip()]
-    
-    def split_into_words(self, text: str) -> List[str]:
-        """
-        将文本分割成词汇，保持中英文词汇完整性
-        
-        Args:
-            text: 要分割的文本
-            
-        Returns:
-            List[str]: 词汇列表
-        """
-        # 使用正则表达式匹配不同类型的token
-        pattern = r'''
-            [a-zA-Z]+(?:\d+)?       |  # 英文单词（可能包含数字）
-            \d+(?:\.\d+)?           |  # 数字（包括小数）
-            [\u4e00-\u9fff]{2,4}    |  # 中文词汇（2-4个字符）
-            [\u4e00-\u9fff]         |  # 单个中文字符
-            [^\w\s]                 |  # 标点符号
-            \s+                        # 空白字符
-        '''
-        
-        tokens = re.findall(pattern, text, re.VERBOSE)
-        
-        # 合并相邻的中文字符形成更长的词
-        merged_tokens = []
-        i = 0
-        while i < len(tokens):
-            token = tokens[i]
-            
-            # 如果是单个中文字符，尝试与后面的中文字符合并
-            if re.match(r'[\u4e00-\u9fff]$', token):
-                combined = token
-                j = i + 1
-                
-                # 向前合并中文字符，但限制长度
-                while (j < len(tokens) and 
-                       re.match(r'[\u4e00-\u9fff]$', tokens[j]) and 
-                       len(combined) < 4):
-                    combined += tokens[j]
-                    j += 1
-                
-                merged_tokens.append(combined)
-                i = j
-            else:
-                merged_tokens.append(token)
-                i += 1
-        
-        return [token for token in merged_tokens if token.strip()]
-    
-    def smart_split_text(self, text: str) -> List[str]:
-        """
-        智能分割文本，基于估算时长和词汇边界
-        
-        Args:
-            text: 要分割的文本
-            
-        Returns:
-            List[str]: 分割后的文本段落列表
-        """
-        # 清理文本
-        text = text.strip()
-        
-        # 如果文本估算时长小于限制，直接返回
-        if self.estimate_audio_duration(text) <= self.max_audio_duration:
-            return [text]
-        
-        # 使用改进的中文分词
-        tokens = self.segment_chinese_text(text)
-        
-        segments = []
-        current_segment = ""
-        
-        for token in tokens:
-            test_segment = current_segment + token
-            
-            # 检查是否超过时长限制
-            if self.estimate_audio_duration(test_segment) <= self.max_audio_duration:
-                current_segment = test_segment
-            else:
-                # 如果当前段落不为空，保存它
-                if current_segment.strip():
-                    segments.append(current_segment.strip())
-                
-                # 如果单个token就超过限制，需要强制分割
-                if self.estimate_audio_duration(token) > self.max_audio_duration:
-                    sub_segments = self.force_split_long_token(token)
-                    segments.extend(sub_segments)
-                    current_segment = ""
-                else:
-                    current_segment = token
-        
-        # 添加最后一个段落
-        if current_segment.strip():
-            segments.append(current_segment.strip())
-        
-        return segments
-    
-    def force_split_long_token(self, token: str) -> List[str]:
-        """
-        强制分割过长的token
-        
-        Args:
-            token: 要分割的token
-            
-        Returns:
-            List[str]: 分割后的片段
-        """
-        segments = []
-        current_segment = ""
-        
-        # 按字符逐个添加
-        for char in token:
-            test_segment = current_segment + char
-            
-            if self.estimate_audio_duration(test_segment) <= self.max_audio_duration:
-                current_segment = test_segment
-            else:
-                if current_segment:
-                    segments.append(current_segment)
-                current_segment = char
-        
-        if current_segment:
-            segments.append(current_segment)
-        
-        return segments
-    
-    def calibrate_speech_rate(self, sample_text: str = "这是一个用于测试语速的示例文本，包含了中文和English单词。") -> float:
-        """
-        校准语速参数
-        
-        Args:
-            sample_text: 用于测试的示例文本
-            
-        Returns:
-            float: 校准后的字符/秒速率
-        """
-        print("正在校准语速参数...")
         try:
-            voice_path, duration = self.tts_module.generate_voice(
-                sample_text, f"calibration_{random.randint(1000, 9999)}"
+            # 生成样本语音
+            voice_path, actual_duration = self.tts_module.generate_voice(
+                sample_text, "speech_rate_calibration"
             )
             
-            effective_chars = len(re.sub(r'[^\w]', '', sample_text))
-            chars_per_second = effective_chars / duration
+            # 计算实际语速
+            clean_text_length = len(sample_text.replace(" ", "").replace("\n", ""))
+            actual_chars_per_second = clean_text_length / actual_duration
             
-            print(f"校准结果: {effective_chars} 字符 / {duration:.2f} 秒 = {chars_per_second:.2f} 字符/秒")
+            # 更新估计语速
+            self.estimated_chars_per_second = actual_chars_per_second
+            self.text_segmenter.estimated_chars_per_second = actual_chars_per_second
             
-            # 删除临时文件
-            if os.path.exists(voice_path):
-                os.remove(voice_path)
-            
-            # 更新估算参数，并增加10%的安全边际
-            self.estimated_chars_per_second = chars_per_second * 0.9
-            print(f"更新后的估算参数: {self.estimated_chars_per_second:.2f} 字符/秒")
-            
-            return self.estimated_chars_per_second
+            print(f"语速校准完成: {actual_chars_per_second:.2f} 字符/秒")
+            return actual_chars_per_second
             
         except Exception as e:
-            print(f"语速校准失败，使用默认值: {e}")
+            print(f"语速校准失败: {e}，使用默认值 {self.estimated_chars_per_second} 字符/秒")
             return self.estimated_chars_per_second
     
-    def create_subtitle_file(self, text: str, audio_duration: float, output_path: str, 
-                           subtitle_format: str = "srt") -> str:
+    def smart_split_text(self, text: str) -> List[str]:
+        """智能分割文本
+        
+        Args:
+            text: 输入的长文本
+            
+        Returns:
+            List[str]: 分割后的文本片段列表
         """
-        创建字幕文件
+        return self.text_segmenter.smart_split_text(text)
+    
+    def create_subtitle_file(self, text: str, duration: float, output_base_path: str, 
+                            format: str = "srt") -> str:
+        """创建字幕文件
         
         Args:
             text: 字幕文本
-            audio_duration: 音频时长
-            output_path: 输出文件路径（不含扩展名）
-            subtitle_format: 字幕格式 ("srt", "ass", "vtt")
+            duration: 音频时长（秒）
+            output_base_path: 输出文件基础路径（不含扩展名）
+            format: 字幕格式 ("srt", "ass", "vtt")
             
         Returns:
             str: 字幕文件路径
         """
-        if subtitle_format.lower() == "srt":
-            return self.create_srt_subtitle(text, audio_duration, output_path)
-        elif subtitle_format.lower() == "ass":
-            return self.create_ass_subtitle(text, audio_duration, output_path)
-        elif subtitle_format.lower() == "vtt":
-            return self.create_vtt_subtitle(text, audio_duration, output_path)
-        else:
-            raise ValueError(f"不支持的字幕格式: {subtitle_format}")
+        return self.subtitle_generator.create_subtitle_file(
+            text, duration, output_base_path, format
+        )
     
-    def create_srt_subtitle(self, text: str, audio_duration: float, output_path: str) -> str:
-        """
-        创建SRT格式字幕文件（多行但一次性显示，时间覆盖全段）
-        """
-        subtitle_path = f"{output_path}.srt"
-
-        def format_time(seconds):
-            hours = int(seconds // 3600)
-            minutes = int((seconds % 3600) // 60)
-            secs = int(seconds % 60)
-            millisecs = int((seconds % 1) * 1000)
-            return f"{hours:02d}:{minutes:02d}:{secs:02d},{millisecs:03d}"
-
-        start_time = 0.0
-        end_time = audio_duration
-
-        # 分行（比如每20字一行）
-        max_chars_per_line = 20
-        lines = self.split_text_for_subtitles(text, max_chars_per_line)
-
-        with open(subtitle_path, 'w', encoding='utf-8') as f:
-            f.write("1\n")
-            f.write(f"{format_time(start_time)} --> {format_time(end_time)}\n")
-            # 多行写入
-            for line in lines:
-                f.write(line.strip() + "\n")
-            f.write("\n")
-
-        print(f"SRT字幕文件已创建: {subtitle_path}")
-        return subtitle_path
-    
-    def create_ass_subtitle(self, text: str, audio_duration: float, output_path: str) -> str:
-        """
-        创建ASS格式字幕文件（支持更丰富的样式）
-        
-        Args:
-            text: 字幕文本
-            audio_duration: 音频时长
-            output_path: 输出文件路径（不含扩展名）
-            
-        Returns:
-            str: 字幕文件路径
-        """
-        subtitle_path = f"{output_path}.ass"
-        
-        def format_time(seconds):
-            """格式化时间为ASS格式 H:MM:SS.cc"""
-            hours = int(seconds // 3600)
-            minutes = int((seconds % 3600) // 60)
-            secs = int(seconds % 60)
-            centisecs = int((seconds % 1) * 100)
-            return f"{hours}:{minutes:02d}:{secs:02d}.{centisecs:02d}"
-        
-        # ASS文件头部
-        ass_header = """[Script Info]
-Title: AI News Subtitle
-ScriptType: v4.00+
-
-[V4+ Styles]
-Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
-Style: Default,Arial,20,&H00FFFFFF,&H000000FF,&H00000000,&H80000000,1,0,0,0,100,100,0,0,1,2,0,2,10,10,10,1
-
-[Events]
-Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
-"""
-        
-        # 计算字幕显示时间
-        start_time = 0.0
-        end_time = audio_duration
-        
-        with open(subtitle_path, 'w', encoding='utf-8') as f:
-            f.write(ass_header)
-            
-            # 如果文本较长，分段显示
-            max_chars_per_line = 20
-            if len(text) > max_chars_per_line:
-                segments = self.split_text_for_subtitles(text, max_chars_per_line)
-                segment_duration = audio_duration / len(segments)
-                
-                for i, segment in enumerate(segments):
-                    segment_start = i * segment_duration
-                    segment_end = (i + 1) * segment_duration
-                    
-                    f.write(f"Dialogue: 0,{format_time(segment_start)},{format_time(segment_end)},Default,,0,0,0,,{segment}\n")
-            else:
-                f.write(f"Dialogue: 0,{format_time(start_time)},{format_time(end_time)},Default,,0,0,0,,{text}\n")
-        
-        print(f"ASS字幕文件已创建: {subtitle_path}")
-        return subtitle_path
-    
-    def create_vtt_subtitle(self, text: str, audio_duration: float, output_path: str) -> str:
-        """
-        创建VTT格式字幕文件
-        
-        Args:
-            text: 字幕文本
-            audio_duration: 音频时长
-            output_path: 输出文件路径（不含扩展名）
-            
-        Returns:
-            str: 字幕文件路径
-        """
-        subtitle_path = f"{output_path}.vtt"
-        
-        def format_time(seconds):
-            """格式化时间为VTT格式 HH:MM:SS.mmm"""
-            hours = int(seconds // 3600)
-            minutes = int((seconds % 3600) // 60)
-            secs = int(seconds % 60)
-            millisecs = int((seconds % 1) * 1000)
-            return f"{hours:02d}:{minutes:02d}:{secs:02d}.{millisecs:03d}"
-        
-        with open(subtitle_path, 'w', encoding='utf-8') as f:
-            f.write("WEBVTT\n\n")
-            
-            # 如果文本较长，分段显示
-            max_chars_per_line = 20
-            if len(text) > max_chars_per_line:
-                segments = self.split_text_for_subtitles(text, max_chars_per_line)
-                segment_duration = audio_duration / len(segments)
-                
-                for i, segment in enumerate(segments):
-                    segment_start = i * segment_duration
-                    segment_end = (i + 1) * segment_duration
-                    
-                    f.write(f"{i + 1}\n")
-                    f.write(f"{format_time(segment_start)} --> {format_time(segment_end)}\n")
-                    f.write(f"{segment}\n\n")
-            else:
-                f.write("1\n")
-                f.write(f"{format_time(0.0)} --> {format_time(audio_duration)}\n")
-                f.write(f"{text}\n\n")
-        
-        print(f"VTT字幕文件已创建: {subtitle_path}")
-        return subtitle_path#pip install vosk pydub srt
-    
-    def split_text_for_subtitles(self, text: str, max_chars_per_line: int) -> List[str]:
-        """
-        为字幕分割文本，保持词汇完整性
-        
-        Args:
-            text: 要分割的文本
-            max_chars_per_line: 每行最大字符数
-            
-        Returns:
-            List[str]: 分割后的文本行
-        """
-        if len(text) <= max_chars_per_line:
-            return [text]
-        
-        # 使用改进的分词方法
-        tokens = self.segment_chinese_text(text)
-        
-        segments = []
-        current_segment = ""
-        
-        for token in tokens:
-            test_segment = current_segment + token
-            
-            if len(test_segment) <= max_chars_per_line:
-                current_segment = test_segment
-            else:
-                if current_segment.strip():
-                    segments.append(current_segment.strip())
-                
-                # 如果单个token就超过长度限制，强制分割
-                if len(token) > max_chars_per_line:
-                    # 按字符分割
-                    for i in range(0, len(token), max_chars_per_line):
-                        segments.append(token[i:i + max_chars_per_line])
-                    current_segment = ""
-                else:
-                    current_segment = token
-        
-        if current_segment.strip():
-            segments.append(current_segment.strip())
-        
-        return segments
-    
-    def add_subtitles_to_video(self, video_path: str, subtitle_path: str, output_path: str, 
-                             subtitle_style: dict = None) -> str:
-        """
-        将字幕添加到视频中（修复路径问题）
+    def add_subtitles_to_video(self, video_path: str, subtitle_path: str, 
+                              output_path: str, style: Dict[str, Any] = None) -> Optional[str]:
+        """将字幕添加到视频
         
         Args:
             video_path: 视频文件路径
             subtitle_path: 字幕文件路径
-            output_path: 输出视频路径
-            subtitle_style: 字幕样式设置
+            output_path: 输出文件路径
+            style: 字幕样式设置
             
         Returns:
-            str: 带字幕的视频文件路径
+            Optional[str]: 成功时返回输出文件路径，失败时返回None
         """
-        try:
-            # 检查字幕文件是否存在
-            if not os.path.exists(subtitle_path):
-                print(f"字幕文件不存在: {subtitle_path}")
-                return None
-            
-            # 默认字幕样式
-            default_style = {
-                'fontsize': 20,
-                'fontcolor': 'white',
-                'fontfile': None,  # 字体文件路径，可选
-                'box': 1,
-                'boxcolor': 'black@0.5',
-                'boxborderw': 5,
-                'x': '(w-text_w)/2',  # 水平居中
-                'y': 'h-text_h-10'   # 底部对齐，距离底部10像素
-            }
-            
-            if subtitle_style:
-                default_style.update(subtitle_style)
-            
-            # 获取绝对路径并正确转义
-            abs_subtitle_path = os.path.abspath(subtitle_path)
-            
-            # 构建字幕滤镜参数
-            if subtitle_path.endswith('.srt') or subtitle_path.endswith('.vtt'):
-                # 对Windows路径进行特殊处理
-                if os.name == 'nt':  # Windows
-                    # Windows路径需要转义反斜杠和冒号
-                    escaped_path = abs_subtitle_path.replace('\\', '\\\\').replace(':', '\\:')
-                else:  # Unix/Linux
-                    # Unix路径只需要转义冒号
-                    escaped_path = abs_subtitle_path.replace(':', '\\:')
-                
-                # 使用subtitles滤镜
-                subtitle_filter = f"subtitles='{escaped_path}'"
-                
-                # 添加样式参数（仅对支持的参数）
-                if default_style.get('fontsize'):
-                    subtitle_filter += f":force_style='Fontsize={default_style['fontsize']}'"
-                    
-            elif subtitle_path.endswith('.ass'):
-                # 使用ass滤镜
-                if os.name == 'nt':
-                    escaped_path = abs_subtitle_path.replace('\\', '\\\\').replace(':', '\\:')
-                else:
-                    escaped_path = abs_subtitle_path.replace(':', '\\:')
-                
-                subtitle_filter = f"ass='{escaped_path}'"
-            else:
-                print(f"不支持的字幕格式: {subtitle_path}")
-                return None
-            
-            # 构建ffmpeg命令
-            cmd = [
-                'ffmpeg', '-y',
-                '-i', video_path,
-                '-vf', subtitle_filter,
-                '-c:a', 'copy',  # 音频流复制
-                '-c:v', 'libx264',  # 视频重新编码以嵌入字幕
-                output_path
-            ]
-            
-            print(f"正在添加字幕到视频: {output_path}")
-            print(f"字幕文件: {abs_subtitle_path}")
-            print(f"字幕滤镜: {subtitle_filter}")
-            
-            # 执行命令
-            result = subprocess.run(cmd, capture_output=True, text=True)
-            
-            if result.returncode == 0:
-                print(f"字幕添加成功: {output_path}")
-                return output_path
-            else:
-                print(f"字幕添加失败:")
-                print(f"错误信息: {result.stderr}")
-                
-                # 尝试简化的方法
-                print("尝试使用简化的字幕方法...")
-                return self.add_subtitles_simple(video_path, subtitle_path, output_path, default_style)
-                
-        except Exception as e:
-            print(f"添加字幕时出错: {e}")
-            return None
+        return self.video_processor.add_subtitles_to_video(
+            video_path, subtitle_path, output_path, style
+        )
     
-    def add_subtitles_simple(self, video_path: str, subtitle_path: str, output_path: str, 
-                           subtitle_style: dict) -> str:
-        """
-        使用简化方法添加字幕（fallback方法）
-        
-        Args:
-            video_path: 视频文件路径
-            subtitle_path: 字幕文件路径
-            output_path: 输出视频路径
-            subtitle_style: 字幕样式设置
-            
-        Returns:
-            str: 带字幕的视频文件路径
-        """
-        try:
-            # 读取字幕文件内容
-            with open(subtitle_path, 'r', encoding='utf-8') as f:
-                subtitle_content = f.read()
-            
-            # 从SRT内容中提取文本
-            if subtitle_path.endswith('.srt'):
-                # 简单的SRT解析
-                lines = subtitle_content.split('\n')
-                subtitle_text = ""
-                for line in lines:
-                    line = line.strip()
-                    if line and not line.isdigit() and '-->' not in line:
-                        if subtitle_text:
-                            subtitle_text += " "
-                        subtitle_text += line
-            else:
-                subtitle_text = subtitle_content
-            
-            # 使用drawtext滤镜
-            # 转义特殊字符
-            escaped_text = subtitle_text.replace("'", "\\'").replace(":", "\\:")
-            
-            subtitle_filter = f"drawtext=text='{escaped_text}'"
-            subtitle_filter += f":fontsize={subtitle_style.get('fontsize', 20)}"
-            subtitle_filter += f":fontcolor={subtitle_style.get('fontcolor', 'white')}"
-            subtitle_filter += f":x={subtitle_style.get('x', '(w-text_w)/2')}"
-            subtitle_filter += f":y={subtitle_style.get('y', 'h-text_h-10')}"
-            
-            if subtitle_style.get('box'):
-                subtitle_filter += f":box=1"
-                subtitle_filter += f":boxcolor={subtitle_style.get('boxcolor', 'black@0.5')}"
-                subtitle_filter += f":boxborderw={subtitle_style.get('boxborderw', 5)}"
-            
-            cmd = [
-                'ffmpeg', '-y',
-                '-i', video_path,
-                '-vf', subtitle_filter,
-                '-c:a', 'copy',
-                '-c:v', 'libx264',
-                output_path
-            ]
-            
-            print(f"使用简化方法添加字幕...")
-            print(f"字幕滤镜: {subtitle_filter}")
-            
-            result = subprocess.run(cmd, capture_output=True, text=True)
-            
-            if result.returncode == 0:
-                print(f"简化方法字幕添加成功: {output_path}")
-                return output_path
-            else:
-                print(f"简化方法也失败: {result.stderr}")
-                return None
-                
-        except Exception as e:
-            print(f"简化字幕方法出错: {e}")
-            return None
-    
-    def generate_random_seed(self) -> int:
-        """生成随机种子"""
-        return random.randint(1, 10000)
-    
-    def merge_audio_video(self, audio_path: str, video_path: str, output_path: str) -> str:
-        """
-        合并音频和视频，裁剪视频时长与音频一致
+    def merge_audio_video(self, audio_path: str, video_path: str, output_path: str) -> Optional[str]:
+        """合并音频和视频
         
         Args:
             audio_path: 音频文件路径
@@ -646,39 +175,24 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
             output_path: 输出文件路径
             
         Returns:
-            str: 合并后的视频文件路径
+            Optional[str]: 成功时返回输出文件路径，失败时返回None
         """
-        try:
-            # 使用ffmpeg合并音频和视频，并裁剪视频长度
-            cmd = [
-                'ffmpeg', '-y',
-                '-i', video_path,
-                '-i', audio_path,
-                '-c:v', 'copy',
-                '-c:a', 'aac',
-                '-shortest',  # 使用最短的流作为输出长度
-                output_path
-            ]
-            
-            print(f"正在合并音频和视频: {output_path}")
-            result = subprocess.run(cmd, capture_output=True, text=True)
-            
-            if result.returncode == 0:
-                print(f"音视频合并成功: {output_path}")
-                return output_path
-            else:
-                print(f"音视频合并失败: {result.stderr}")
-                return None
-                
-        except Exception as e:
-            print(f"音视频合并出错: {e}")
-            return None
+        return self.video_processor.merge_audio_video(
+            audio_path, video_path, output_path
+        )
+    
+    def generate_random_seed(self) -> int:
+        """生成随机种子
+        
+        Returns:
+            int: 随机种子
+        """
+        return self.video_processor.generate_random_seed()
     
     def process_long_news(self, news_text: str, project_name: str = None, calibrate: bool = True,
                          add_subtitles: bool = True, subtitle_format: str = "srt",
                          subtitle_style: dict = None) -> dict:
-        """
-        处理长新闻，生成分段播报
+        """处理长新闻，生成分段播报
         
         Args:
             news_text: 长新闻文本
@@ -895,7 +409,7 @@ def main():
     # 处理长新闻（启用字幕）
     result = processor.process_long_news(
         long_ai_news, 
-        "ai_industry_report_2024_with_subtitles_v2",
+        "ai_report_",
         calibrate=True,
         add_subtitles=True,          # 启用字幕
         subtitle_format="srt",       # 使用SRT格式
@@ -927,6 +441,7 @@ def main():
                 print(f"    字幕文件: {segment['subtitle_path']}")
         else:
             print(f"{i+1:2d}. {segment['segment_id']}: 处理失败")
+    return result
 
 if __name__ == "__main__":
     main()
