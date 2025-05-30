@@ -5,6 +5,7 @@ description = "deepseek_ai_news_crew using crewAI"
 authors = [{ name = "Your Name", email = "you@example.com" }]
 requires-python = ">=3.10,<3.13"
 dependencies = [
+    "airobot>=0.1.3",
     "crewai[tools]>=0.118.0,<1.0.0",
     "cryptography>=43.0.3",
     "ffmpeg>=1.4",
@@ -12,7 +13,10 @@ dependencies = [
     "librosa>=0.11.0",
     "moviepy>=2.2.1",
     "pydantic>=2.11.4",
+    "pydub>=0.25.1",
+    "srt>=3.5.3",
     "volcengine-python-sdk[ark]>=3.0.4",
+    "vosk>=0.3.45",
 ]
 
 [project.scripts]

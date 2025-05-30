@@ -11,7 +11,7 @@ import math
 import uuid
 import time
 from datetime import datetime
-from airobot import MultimodalNewsBot
+from aigc.airobot import MultimodalNewsBot
 
 MAX_CHARS_PER_SEGMENT = 42
 MAX_WORKERS = 4
@@ -556,7 +556,7 @@ def add_gentle_intro_outro(video_path: str, output_path: str, total_duration: fl
     logging.info(f"Adding gentle intro/outro (fade: {fade_duration:.2f}s) → {output_path}")
     run_cmd(cmd)
 
-def generate_full_news_parallel(text: str) -> str:
+def generate_full_news_parallel(text: str, output_path: str = None) -> str:
     segs = smart_chunk_text(text)
     logging.info(f"Text split into {len(segs)} segments")
     for i, s in enumerate(segs, 1):
@@ -608,7 +608,14 @@ def generate_full_news_parallel(text: str) -> str:
     concat_videos_with_simple_transitions(all_videos, all_durations, intermediate_output)
 
     # 总体intro/outro
-    final_output = f"output/full_news_{ts}_{unique_session}.mp4"
+    if output_path is None:
+        final_output = f"output/full_news_{ts}_{unique_session}.mp4"
+    else:
+        final_output = output_path
+        # 确保输出目录存在
+        output_dir = os.path.dirname(final_output)
+        if output_dir and not os.path.exists(output_dir):
+            os.makedirs(output_dir, exist_ok=True)
     add_gentle_intro_outro(intermediate_output, final_output, total_duration)
 
     # 清理中间文件

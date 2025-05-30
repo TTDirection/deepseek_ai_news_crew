@@ -138,41 +138,29 @@ class WechatMessageTool(BaseTool):
                 logger.error(f"Outputs目录不可写: {str(e)}")
                 return f"Outputs目录不可写: {str(e)}"
 
-            # 如果没有提供MP3文件，自动生成
-            if not mp3_file:
+            # 检查是否需要生成视频
+            generate_video = os.getenv("GENERATE_VIDEO", "false").lower() == "true"
+            
+            if generate_video:
+                # 生成视频文件
                 today = datetime.now()
                 date_str = today.strftime("%Y年%m月%d日")
-                mp3_file = outputs_dir / f"【AI日报】{date_str}.wav"
-                logger.info(f"未提供语音文件，将生成: {mp3_file}")
+                video_file = outputs_dir / f"【AI日报】{date_str}.mp4"
+                logger.info(f"将生成视频文件: {video_file}")
 
                 try:
-                    logger.info("开始生成语音文件")
-                    # 从环境变量读取语音生成方式
-                    use_bytedance_tts = os.getenv("USE_BYTEDANCE_TTS", "false").lower() == "true"
-                    
-                    if use_bytedance_tts:
-                        # 使用字节跳动TTS服务生成语音
-                        from text2voice_BytedanceTTS import BytedanceTTS
-                        tts = BytedanceTTS()
-                        output_path = tts.generate(clean_content, output_file=str(mp3_file))
-                    else:
-                        # 使用Google TTS生成语音
-                        from gtts import gTTS
-                        # 清理 Markdown 格式
-                        clean_text = self.clean_markdown(clean_content)
-                        # 预处理中文文本，优化断句
-                        processed_text = self.preprocess_for_chinese(clean_text)
-                        tts = gTTS(text=processed_text, lang='zh-cn')
-                        output_path = str(mp3_file)
-                        tts.save(output_path)
+                    logger.info("开始生成视频文件")
+                    # 调用enhancedRobot.py中的generate_full_news生成视频
+                    from aigc.enhancedRobot import generate_full_news_parallel
+                    output_path = generate_full_news_parallel(clean_content)
                     
                     if output_path and os.path.exists(output_path):
-                        logger.info(f"成功生成WAV文件: {output_path}")
-                        # 更新mp3_file变量为wav文件路径
+                        logger.info(f"成功生成视频文件: {output_path}")
+                        # 更新mp3_file变量为视频文件路径
                         mp3_file = Path(output_path)
                         
                         # 等待文件完全写入
-                        max_wait = 300  # 最大等待300秒
+                        max_wait = 2000  # 最大等待2000秒
                         wait_interval = 1  # 每1秒检查一次
                         waited = 0
                         last_size = -1
@@ -184,25 +172,91 @@ class WechatMessageTool(BaseTool):
                                 if current_size == last_size:
                                     stable_count += 1
                                     if stable_count >= 3:  # 连续3次大小相同，认为文件已写入完成
-                                        logger.info(f"WAV文件已完全生成，大小: {current_size} 字节")
+                                        logger.info(f"视频文件已完全生成，大小: {current_size} 字节")
                                         break
                                 else:
                                     stable_count = 0
-                                    logger.info(f"WAV文件正在生成中，当前大小: {current_size} 字节")
+                                    logger.info(f"视频文件正在生成中，当前大小: {current_size} 字节")
                             last_size = current_size
                             time.sleep(wait_interval)
                             waited += wait_interval
-                            logger.info(f"等待WAV文件生成完成... ({waited:.1f}秒)")
+                            logger.info(f"等待视频文件生成完成... ({waited:.1f}秒)")
                         
                         if waited >= max_wait:
-                            logger.error("等待WAV文件生成超时")
-                            return "文本消息准备发送，但WAV文件生成超时"
+                            logger.error("等待视频文件生成超时")
+                            return "文本消息准备发送，但视频文件生成超时"
                     else:
-                        logger.error("生成WAV文件失败")
-                        return "文本消息准备发送，但生成WAV文件失败"
+                        logger.error("生成视频文件失败")
+                        return "文本消息准备发送，但生成视频文件失败"
                 except Exception as e:
-                    logger.error(f"生成语音文件失败: {str(e)}")
-                    return f"文本消息准备发送，但生成语音文件失败: {str(e)}"
+                    logger.error(f"生成视频文件失败: {str(e)}")
+                    return f"文本消息准备发送，但生成视频文件失败: {str(e)}"
+            else:
+                # 如果没有提供MP3文件，自动生成
+                if not mp3_file:
+                    today = datetime.now()
+                    date_str = today.strftime("%Y年%m月%d日")
+                    mp3_file = outputs_dir / f"【AI日报】{date_str}.wav"
+                    logger.info(f"未提供语音文件，将生成: {mp3_file}")
+
+                    try:
+                        logger.info("开始生成语音文件")
+                        # 从环境变量读取语音生成方式
+                        use_bytedance_tts = os.getenv("USE_BYTEDANCE_TTS", "false").lower() == "true"
+                        
+                        if use_bytedance_tts:
+                            # 使用字节跳动TTS服务生成语音
+                            from text2voice_BytedanceTTS import BytedanceTTS
+                            tts = BytedanceTTS()
+                            output_path = tts.generate(clean_content, output_file=str(mp3_file))
+                        else:
+                            # 使用Google TTS生成语音
+                            from gtts import gTTS
+                            # 清理 Markdown 格式
+                            clean_text = self.clean_markdown(clean_content)
+                            # 预处理中文文本，优化断句
+                            processed_text = self.preprocess_for_chinese(clean_text)
+                            tts = gTTS(text=processed_text, lang='zh-cn')
+                            output_path = str(mp3_file)
+                            tts.save(output_path)
+                        
+                        if output_path and os.path.exists(output_path):
+                            logger.info(f"成功生成WAV文件: {output_path}")
+                            # 更新mp3_file变量为wav文件路径
+                            mp3_file = Path(output_path)
+                            
+                            # 等待文件完全写入
+                            max_wait = 300  # 最大等待300秒
+                            wait_interval = 1  # 每1秒检查一次
+                            waited = 0
+                            last_size = -1
+                            stable_count = 0
+                            
+                            while waited < max_wait:
+                                current_size = os.path.getsize(output_path)
+                                if current_size > 0:
+                                    if current_size == last_size:
+                                        stable_count += 1
+                                        if stable_count >= 3:  # 连续3次大小相同，认为文件已写入完成
+                                            logger.info(f"WAV文件已完全生成，大小: {current_size} 字节")
+                                            break
+                                    else:
+                                        stable_count = 0
+                                        logger.info(f"WAV文件正在生成中，当前大小: {current_size} 字节")
+                                last_size = current_size
+                                time.sleep(wait_interval)
+                                waited += wait_interval
+                                logger.info(f"等待WAV文件生成完成... ({waited:.1f}秒)")
+                            
+                            if waited >= max_wait:
+                                logger.error("等待WAV文件生成超时")
+                                return "文本消息准备发送，但WAV文件生成超时"
+                        else:
+                            logger.error("生成WAV文件失败")
+                            return "文本消息准备发送，但生成WAV文件失败"
+                    except Exception as e:
+                        logger.error(f"生成语音文件失败: {str(e)}")
+                        return f"文本消息准备发送，但生成语音文件失败: {str(e)}"
 
             # 验证语音文件是否存在
             if not os.path.exists(mp3_file):
