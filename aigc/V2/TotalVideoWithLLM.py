@@ -7,20 +7,360 @@ from typing import List, Tuple
 import json
 from MultimodalRobot import MultimodalNewsBot, TTSModule
 from langchain_openai import ChatOpenAI
+import multiprocessing as mp  #? 新增：添加多进程支持
+import time  #? 新增：添加时间计算功能
+
+# 全局函数，用于多进程处理  #? 新增：全局函数开始
+def estimate_audio_duration_global(text: str, estimated_chars_per_second: float) -> float:  #? 新增：全局估算时长函数
+    """全局版本的音频时长估算函数"""  #? 新增
+    effective_chars = len(re.sub(r'[^\w]', '', text))  #? 新增
+    estimated_duration = effective_chars / estimated_chars_per_second  #? 新增
+    return estimated_duration  #? 新增
+
+def merge_audio_video_global(audio_path: str, video_path: str, output_path: str) -> str:  #? 新增：全局音视频合并函数
+    """全局版本的音视频合并函数"""  #? 新增
+    try:  #? 新增
+        cmd = [  #? 新增
+            'ffmpeg', '-y',  #? 新增
+            '-i', video_path,  #? 新增
+            '-i', audio_path,  #? 新增
+            '-c:v', 'copy',  #? 新增
+            '-c:a', 'aac',  #? 新增
+            '-shortest',  #? 新增
+            output_path  #? 新增
+        ]  #? 新增
+        
+        print(f"[进程 {os.getpid()}] 正在合并音频和视频: {output_path}")  #? 新增
+        result = subprocess.run(cmd, capture_output=True, text=True)  #? 新增
+        
+        if result.returncode == 0:  #? 新增
+            print(f"[进程 {os.getpid()}] 音视频合并成功: {output_path}")  #? 新增
+            return output_path  #? 新增
+        else:  #? 新增
+            print(f"[进程 {os.getpid()}] 音视频合并失败: {result.stderr}")  #? 新增
+            return None  #? 新增
+            
+    except Exception as e:  #? 新增
+        print(f"[进程 {os.getpid()}] 音视频合并出错: {e}")  #? 新增
+        return None  #? 新增
+
+def create_subtitle_file_global(text: str, audio_duration: float, output_path: str, subtitle_format: str = "srt") -> str:  #? 新增：全局字幕创建函数
+    """全局版本的字幕文件创建函数"""  #? 新增
+    if subtitle_format.lower() == "srt":  #? 新增
+        return create_srt_subtitle_global(text, audio_duration, output_path)  #? 新增
+    elif subtitle_format.lower() == "ass":  #? 新增
+        return create_ass_subtitle_global(text, audio_duration, output_path)  #? 新增
+    elif subtitle_format.lower() == "vtt":  #? 新增
+        return create_vtt_subtitle_global(text, audio_duration, output_path)  #? 新增
+    else:  #? 新增
+        raise ValueError(f"不支持的字幕格式: {subtitle_format}")  #? 新增
+
+def create_srt_subtitle_global(text: str, audio_duration: float, output_path: str) -> str:  #? 新增：全局SRT字幕创建函数
+    """全局版本的SRT字幕创建函数"""  #? 新增
+    subtitle_path = f"{output_path}.srt"  #? 新增
+
+    def format_time(seconds):  #? 新增
+        hours = int(seconds // 3600)  #? 新增
+        minutes = int((seconds % 3600) // 60)  #? 新增
+        secs = int(seconds % 60)  #? 新增
+        millisecs = int((seconds % 1) * 1000)  #? 新增
+        return f"{hours:02d}:{minutes:02d}:{secs:02d},{millisecs:03d}"  #? 新增
+
+    start_time = 0.0  #? 新增
+    end_time = audio_duration  #? 新增
+
+    max_chars_per_line = 20  #? 新增
+    lines = split_text_for_subtitles_global(text, max_chars_per_line)  #? 新增
+
+    with open(subtitle_path, 'w', encoding='utf-8') as f:  #? 新增
+        f.write("1\n")  #? 新增
+        f.write(f"{format_time(start_time)} --> {format_time(end_time)}\n")  #? 新增
+        for line in lines:  #? 新增
+            f.write(line.strip() + "\n")  #? 新增
+        f.write("\n")  #? 新增
+
+    print(f"[进程 {os.getpid()}] SRT字幕文件已创建: {subtitle_path}")  #? 新增
+    return subtitle_path  #? 新增
+
+def split_text_for_subtitles_global(text: str, max_chars_per_line: int) -> List[str]:  #? 新增：全局字幕分行函数
+    """全局版本的字幕分行函数"""  #? 新增
+    if len(text) <= max_chars_per_line:  #? 新增
+        return [text]  #? 新增
+    
+    segments = []  #? 新增
+    sentences = re.split(r'([。！？；])', text)  #? 新增
+    
+    current_line = ""  #? 新增
+    for i in range(0, len(sentences), 2):  #? 新增
+        if i < len(sentences):  #? 新增
+            part = sentences[i]  #? 新增
+            
+            if i + 1 < len(sentences):  #? 新增
+                part += sentences[i + 1]  #? 新增
+            
+            if len(current_line + part) <= max_chars_per_line:  #? 新增
+                current_line += part  #? 新增
+            else:  #? 新增
+                if current_line:  #? 新增
+                    segments.append(current_line)  #? 新增
+                
+                if len(part) > max_chars_per_line:  #? 新增
+                    for j in range(0, len(part), max_chars_per_line):  #? 新增
+                        segments.append(part[j:j+max_chars_per_line])  #? 新增
+                    current_line = ""  #? 新增
+                else:  #? 新增
+                    current_line = part  #? 新增
+    
+    if current_line:  #? 新增
+        segments.append(current_line)  #? 新增
+    
+    return segments  #? 新增
+
+def add_subtitles_to_video_global(video_path: str, subtitle_path: str, output_path: str, subtitle_style: dict = None) -> str:  #? 新增：全局字幕添加函数
+    """全局版本的字幕添加函数"""  #? 新增
+    try:  #? 新增
+        if not os.path.exists(subtitle_path):  #? 新增
+            print(f"[进程 {os.getpid()}] 字幕文件不存在: {subtitle_path}")  #? 新增
+            return None  #? 新增
+        
+        default_style = {  #? 新增
+            'fontsize': 20,  #? 新增
+            'fontcolor': 'white',  #? 新增
+            'fontfile': None,  #? 新增
+            'box': 1,  #? 新增
+            'boxcolor': 'black@0.5',  #? 新增
+            'boxborderw': 5,  #? 新增
+            'x': '(w-text_w)/2',  #? 新增
+            'y': 'h-text_h-10'  #? 新增
+        }  #? 新增
+        
+        if subtitle_style:  #? 新增
+            default_style.update(subtitle_style)  #? 新增
+        
+        abs_subtitle_path = os.path.abspath(subtitle_path)  #? 新增
+        
+        if subtitle_path.endswith('.srt') or subtitle_path.endswith('.vtt'):  #? 新增
+            if os.name == 'nt':  #? 新增
+                escaped_path = abs_subtitle_path.replace('\\', '\\\\').replace(':', '\\:')  #? 新增
+            else:  #? 新增
+                escaped_path = abs_subtitle_path.replace(':', '\\:')  #? 新增
+            
+            subtitle_filter = f"subtitles='{escaped_path}'"  #? 新增
+            
+            if default_style.get('fontsize'):  #? 新增
+                subtitle_filter += f":force_style='Fontsize={default_style['fontsize']}'"  #? 新增
+                
+        elif subtitle_path.endswith('.ass'):  #? 新增
+            if os.name == 'nt':  #? 新增
+                escaped_path = abs_subtitle_path.replace('\\', '\\\\').replace(':', '\\:')  #? 新增
+            else:  #? 新增
+                escaped_path = abs_subtitle_path.replace(':', '\\:')  #? 新增
+            
+            subtitle_filter = f"ass='{escaped_path}'"  #? 新增
+        else:  #? 新增
+            print(f"[进程 {os.getpid()}] 不支持的字幕格式: {subtitle_path}")  #? 新增
+            return None  #? 新增
+        
+        cmd = [  #? 新增
+            'ffmpeg', '-y',  #? 新增
+            '-i', video_path,  #? 新增
+            '-vf', subtitle_filter,  #? 新增
+            '-c:a', 'copy',  #? 新增
+            '-c:v', 'libx264',  #? 新增
+            output_path  #? 新增
+        ]  #? 新增
+        
+        print(f"[进程 {os.getpid()}] 正在添加字幕到视频: {output_path}")  #? 新增
+        result = subprocess.run(cmd, capture_output=True, text=True)  #? 新增
+        
+        if result.returncode == 0:  #? 新增
+            print(f"[进程 {os.getpid()}] 字幕添加成功: {output_path}")  #? 新增
+            return output_path  #? 新增
+        else:  #? 新增
+            print(f"[进程 {os.getpid()}] 字幕添加失败: {result.stderr}")  #? 新增
+            return None  #? 新增
+            
+    except Exception as e:  #? 新增
+        print(f"[进程 {os.getpid()}] 添加字幕时出错: {e}")  #? 新增
+        return None  #? 新增
+
+def process_single_segment_worker(segment_data):  #? 新增：多进程工作函数
+    """  #? 新增
+    处理单个片段的全局函数（用于多进程）  #? 新增
+    这是一个独立的函数，不依赖类实例，可以被pickle序列化  #? 新增
+    
+    Args:  #? 新增
+        segment_data: 包含片段信息和配置的字典  #? 新增
+        
+    Returns:  #? 新增
+        dict: 处理结果  #? 新增
+    """  #? 新增
+    segment = segment_data['text']  #? 新增
+    segment_index = segment_data['index']  #? 新增
+    project_name = segment_data['project_name']  #? 新增
+    add_subtitles = segment_data['add_subtitles']  #? 新增
+    subtitle_format = segment_data['subtitle_format']  #? 新增
+    subtitle_style = segment_data['subtitle_style']  #? 新增
+    max_audio_duration = segment_data['max_audio_duration']  #? 新增
+    final_videos_dir = segment_data['final_videos_dir']  #? 新增
+    subtitles_dir = segment_data['subtitles_dir']  #? 新增
+    estimated_chars_per_second = segment_data['estimated_chars_per_second']  #? 新增
+    
+    segment_id = f"{project_name}_segment_{segment_index:03d}"  #? 新增
+    
+    print(f"[进程 {os.getpid()}] 开始处理片段 {segment_index}: {segment_id}")  #? 新增
+    print(f"[进程 {os.getpid()}] 片段内容: {segment}")  #? 新增
+    
+    try:  #? 新增
+        # 为每个进程创建独立的模块实例  #? 新增
+        news_bot = MultimodalNewsBot()  #? 新增
+        tts_module = TTSModule()  #? 新增
+        
+        # 生成随机种子  #? 新增
+        seed = random.randint(1, 10000)  #? 新增
+        print(f"[进程 {os.getpid()}] 使用随机种子: {seed}")  #? 新增
+        
+        # 生成语音  #? 新增
+        print(f"[进程 {os.getpid()}] 生成语音...")  #? 新增
+        voice_path, audio_duration = tts_module.generate_voice(  #? 新增
+            segment, f"{segment_id}_voice"  #? 新增
+        )  #? 新增
+        
+        # 检查实际时长是否超限  #? 新增
+        if audio_duration > max_audio_duration:  #? 新增
+            print(f"[进程 {os.getpid()}] 警告: 实际音频时长 {audio_duration:.2f}秒 超过限制 {max_audio_duration}秒")  #? 新增
+        
+        # 生成图片  #? 新增
+        print(f"[进程 {os.getpid()}] 生成图片...")  #? 新增
+        image_paths = news_bot.image_module.generate_image(  #? 新增
+            segment, f"{segment_id}_image",  #? 新增
+            ratio="16:9", seed=seed  #? 新增
+        )  #? 新增
+        
+        # 生成视频（固定5秒）  #? 新增
+        print(f"[进程 {os.getpid()}] 生成视频...")  #? 新增
+        video_path = news_bot.video_module.generate_video(  #? 新增
+            segment, 5.0, image_paths, f"{segment_id}_video",  #? 新增
+            resolution="720p", ratio="16:9"  #? 新增
+        )  #? 新增
+        
+        # 合并音频和视频  #? 新增
+        print(f"[进程 {os.getpid()}] 合并音视频...")  #? 新增
+        temp_video_path = os.path.join(  #? 新增
+            final_videos_dir, f"{segment_id}_temp.mp4"  #? 新增
+        )  #? 新增
+        
+        merged_video = merge_audio_video_global(  #? 新增
+            voice_path, video_path, temp_video_path  #? 新增
+        )  #? 新增
+        
+        final_video_path = None  #? 新增
+        subtitle_path = None  #? 新增
+        
+        if merged_video and add_subtitles:  #? 新增
+            # 创建字幕文件  #? 新增
+            print(f"[进程 {os.getpid()}] 创建字幕...")  #? 新增
+            subtitle_base_path = os.path.join(subtitles_dir, f"{segment_id}_subtitle")  #? 新增
+            subtitle_path = create_subtitle_file_global(  #? 新增
+                segment, audio_duration, subtitle_base_path, subtitle_format  #? 新增
+            )  #? 新增
+            
+            # 将字幕添加到视频  #? 新增
+            print(f"[进程 {os.getpid()}] 添加字幕到视频...")  #? 新增
+            final_video_path = os.path.join(  #? 新增
+                final_videos_dir, f"{segment_id}_final.mp4"  #? 新增
+            )  #? 新增
+            
+            final_video_with_subtitles = add_subtitles_to_video_global(  #? 新增
+                merged_video, subtitle_path, final_video_path, subtitle_style  #? 新增
+            )  #? 新增
+            
+            if final_video_with_subtitles:  #? 新增
+                # 删除临时视频文件  #? 新增
+                if os.path.exists(temp_video_path):  #? 新增
+                    os.remove(temp_video_path)  #? 新增
+                final_video_path = final_video_with_subtitles  #? 新增
+            else:  #? 新增
+                # 如果添加字幕失败，使用无字幕版本  #? 新增
+                print(f"[进程 {os.getpid()}] 字幕添加失败，使用无字幕版本")  #? 新增
+                final_video_path = temp_video_path  #? 新增
+        
+        elif merged_video:  #? 新增
+            # 不添加字幕，直接使用合并后的视频  #? 新增
+            final_video_path = os.path.join(  #? 新增
+                final_videos_dir, f"{segment_id}_final.mp4"  #? 新增
+            )  #? 新增
+            
+            # 重命名临时文件  #? 新增
+            if os.path.exists(temp_video_path):  #? 新增
+                os.rename(temp_video_path, final_video_path)  #? 新增
+        
+        segment_result = {  #? 新增
+            "segment_id": segment_id,  #? 新增
+            "segment_index": segment_index,  #? 新增
+            "text": segment,  #? 新增
+            "voice_path": voice_path,  #? 新增
+            "image_paths": image_paths,  #? 新增
+            "video_path": video_path,  #? 新增
+            "final_video_path": final_video_path,  #? 新增
+            "subtitle_path": subtitle_path,  #? 新增
+            "audio_duration": audio_duration,  #? 新增
+            "estimated_duration": estimate_audio_duration_global(segment, estimated_chars_per_second),  #? 新增
+            "seed": seed,  #? 新增
+            "has_subtitles": add_subtitles and subtitle_path is not None,  #? 新增
+            "subtitle_format": subtitle_format if add_subtitles else None,  #? 新增
+            "status": "success" if final_video_path else "failed",  #? 新增
+            "process_id": os.getpid()  #? 新增
+        }  #? 新增
+        
+        print(f"[进程 {os.getpid()}] 片段 {segment_id} 处理完成")  #? 新增
+        return segment_result  #? 新增
+        
+    except Exception as e:  #? 新增
+        print(f"[进程 {os.getpid()}] 处理片段 {segment_id} 时出错: {e}")  #? 新增
+        segment_result = {  #? 新增
+            "segment_id": segment_id,  #? 新增
+            "segment_index": segment_index,  #? 新增
+            "text": segment,  #? 新增
+            "status": "failed",  #? 新增
+            "error": str(e),  #? 新增
+            "process_id": os.getpid()  #? 新增
+        }  #? 新增
+        return segment_result  #? 新增
+# 全局函数结束  #? 新增
+
 
 class LongNewsProcessor:
-    """长新闻处理器，支持分段播报"""
+    """长新闻处理器，支持分段播报和多进程处理"""
     
-    def __init__(self, max_chars_per_segment=20, max_audio_duration=4.8):
+    def __init__(self, max_chars_per_segment=20, max_audio_duration=4.8, max_workers=None):  #? 修改：添加max_workers参数
         """
         初始化长新闻处理器
         
         Args:
             max_chars_per_segment: 每段最大字符数
             max_audio_duration: 最大音频时长（秒）
+            max_workers: 最大并行进程数，默认为CPU核心数
         """
         self.max_chars_per_segment = max_chars_per_segment
         self.max_audio_duration = max_audio_duration
+        
+        # 设置最大并行进程数  #? 新增
+        if max_workers is None:  #? 新增
+            self.max_workers = min(mp.cpu_count(), 4)  # 限制最大4个进程，避免资源过度消耗  #? 新增
+        else:  #? 新增
+            self.max_workers = max_workers  #? 新增
+        
+        print(f"初始化多进程处理器，最大并行数: {self.max_workers}")  #? 新增
+
+
+        # 设置最大并行进程数
+        if max_workers is None:
+            self.max_workers = min(mp.cpu_count(), 4)  # 限制最大4个进程，避免资源过度消耗
+        else:
+            self.max_workers = max_workers
+        
+        print(f"初始化多进程处理器，最大并行数: {self.max_workers}")
         self.news_bot = MultimodalNewsBot()
         self.tts_module = TTSModule()
         
@@ -172,7 +512,7 @@ class LongNewsProcessor:
         # 定义最小段落长度（字符数）
         MIN_SEGMENT_LENGTH = 10
         # 定义理想段落长度范围
-        IDEAL_MIN_LENGTH = 15
+        IDEAL_MIN_LENGTH = 18
         IDEAL_MAX_LENGTH = int(self.max_audio_duration * self.estimated_chars_per_second * 0.9)  # 留10%余量
         
         # 第一步：标记过短的段落
@@ -1214,12 +1554,151 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
         except Exception as e:
             print(f"音视频合并出错: {e}")
             return None
-    
+
+    def process_single_segment(self, segment_data):
+        """
+        处理单个片段的函数（用于多进程）
+        
+        Args:
+            segment_data: 包含片段信息的字典
+            
+        Returns:
+            dict: 处理结果
+        """
+        segment = segment_data['text']
+        segment_index = segment_data['index']
+        project_name = segment_data['project_name']
+        add_subtitles = segment_data['add_subtitles']
+        subtitle_format = segment_data['subtitle_format']
+        subtitle_style = segment_data['subtitle_style']
+        
+        segment_id = f"{project_name}_segment_{segment_index:03d}"
+        
+        print(f"[进程 {os.getpid()}] 开始处理片段 {segment_index}: {segment_id}")
+        print(f"[进程 {os.getpid()}] 片段内容: {segment}")
+        
+        try:
+            # 为每个进程创建独立的模块实例，避免共享状态问题
+            news_bot = MultimodalNewsBot()
+            tts_module = TTSModule()
+            
+            # 生成随机种子
+            seed = random.randint(1, 10000)
+            print(f"[进程 {os.getpid()}] 使用随机种子: {seed}")
+            
+            # 生成语音
+            print(f"[进程 {os.getpid()}] 生成语音...")
+            voice_path, audio_duration = tts_module.generate_voice(
+                segment, f"{segment_id}_voice"
+            )
+            
+            # 检查实际时长是否超限
+            if audio_duration > self.max_audio_duration:
+                print(f"[进程 {os.getpid()}] 警告: 实际音频时长 {audio_duration:.2f}秒 超过限制 {self.max_audio_duration}秒")
+            
+            # 生成图片
+            print(f"[进程 {os.getpid()}] 生成图片...")
+            image_paths = news_bot.image_module.generate_image(
+                segment, f"{segment_id}_image",
+                ratio="16:9", seed=seed
+            )
+            
+            # 生成视频（固定5秒）
+            print(f"[进程 {os.getpid()}] 生成视频...")
+            video_path = news_bot.video_module.generate_video(
+                segment, 5.0, image_paths, f"{segment_id}_video",
+                resolution="720p", ratio="16:9"
+            )
+            
+            # 合并音频和视频
+            print(f"[进程 {os.getpid()}] 合并音视频...")
+            temp_video_path = os.path.join(
+                self.final_videos_dir, f"{segment_id}_temp.mp4"
+            )
+            
+            merged_video = self.merge_audio_video(
+                voice_path, video_path, temp_video_path
+            )
+            
+            final_video_path = None
+            subtitle_path = None
+            
+            if merged_video and add_subtitles:
+                # 创建字幕文件
+                print(f"[进程 {os.getpid()}] 创建字幕...")
+                subtitle_base_path = os.path.join(self.subtitles_dir, f"{segment_id}_subtitle")
+                subtitle_path = self.create_subtitle_file(
+                    segment, audio_duration, subtitle_base_path, subtitle_format
+                )
+                
+                # 将字幕添加到视频
+                print(f"[进程 {os.getpid()}] 添加字幕到视频...")
+                final_video_path = os.path.join(
+                    self.final_videos_dir, f"{segment_id}_final.mp4"
+                )
+                
+                final_video_with_subtitles = self.add_subtitles_to_video(
+                    merged_video, subtitle_path, final_video_path, subtitle_style
+                )
+                
+                if final_video_with_subtitles:
+                    # 删除临时视频文件
+                    if os.path.exists(temp_video_path):
+                        os.remove(temp_video_path)
+                    final_video_path = final_video_with_subtitles
+                else:
+                    # 如果添加字幕失败，使用无字幕版本
+                    print(f"[进程 {os.getpid()}] 字幕添加失败，使用无字幕版本")
+                    final_video_path = temp_video_path
+            
+            elif merged_video:
+                # 不添加字幕，直接使用合并后的视频
+                final_video_path = os.path.join(
+                    self.final_videos_dir, f"{segment_id}_final.mp4"
+                )
+                
+                # 重命名临时文件
+                if os.path.exists(temp_video_path):
+                    os.rename(temp_video_path, final_video_path)
+            
+            segment_result = {
+                "segment_id": segment_id,
+                "segment_index": segment_index,
+                "text": segment,
+                "voice_path": voice_path,
+                "image_paths": image_paths,
+                "video_path": video_path,
+                "final_video_path": final_video_path,
+                "subtitle_path": subtitle_path,
+                "audio_duration": audio_duration,
+                "estimated_duration": self.estimate_audio_duration(segment),
+                "seed": seed,
+                "has_subtitles": add_subtitles and subtitle_path is not None,
+                "subtitle_format": subtitle_format if add_subtitles else None,
+                "status": "success" if final_video_path else "failed",
+                "process_id": os.getpid()
+            }
+            
+            print(f"[进程 {os.getpid()}] 片段 {segment_id} 处理完成")
+            return segment_result
+            
+        except Exception as e:
+            print(f"[进程 {os.getpid()}] 处理片段 {segment_id} 时出错: {e}")
+            segment_result = {
+                "segment_id": segment_id,
+                "segment_index": segment_index,
+                "text": segment,
+                "status": "failed",
+                "error": str(e),
+                "process_id": os.getpid()
+            }
+            return segment_result
+
     def process_long_news(self, news_text: str, project_name: str = None, calibrate: bool = True,
                          add_subtitles: bool = True, subtitle_format: str = "srt",
-                         subtitle_style: dict = None) -> dict:
+                         subtitle_style: dict = None, use_multiprocessing: bool = True) -> dict:  #? 修改：添加use_multiprocessing参数
         """
-        处理长新闻，生成分段播报
+        处理长新闻，生成分段播报（支持多进程）
         
         Args:
             news_text: 长新闻文本
@@ -1228,6 +1707,7 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
             add_subtitles: 是否添加字幕
             subtitle_format: 字幕格式 ("srt", "ass", "vtt")
             subtitle_style: 字幕样式设置
+            use_multiprocessing: 是否使用多进程处理
             
         Returns:
             dict: 处理结果
@@ -1238,6 +1718,7 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
         print(f"开始处理长新闻项目: {project_name}")
         print(f"原始新闻长度: {len(news_text)} 字符")
         print(f"字幕设置: {'启用' if add_subtitles else '禁用'} ({subtitle_format})")
+        print(f"多进程模式: {'启用' if use_multiprocessing else '禁用'}")
         
         # 步骤0: 语速校准（可选）
         if calibrate:
@@ -1255,125 +1736,49 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
             print(f"片段 {i+1}: {len(segment)} 字符, 估算 {estimated_duration:.2f}秒")
             print(f"  内容: {segment}")
         
-        # 步骤2: 为每个片段生成多模态内容
+        # 步骤2: 准备片段数据  #? 修改：重新组织处理逻辑
         print(f"\n=== 步骤2: 生成多模态内容{'（含字幕）' if add_subtitles else ''} ===")
-        results = []
         
-        for i, segment in enumerate(segments):
-            segment_id = f"{project_name}_segment_{i+1:03d}"
-            print(f"\n处理片段 {i+1}/{len(segments)}: {segment_id}")
-            print(f"片段内容: {segment}")
+        segment_data_list = []  #? 新增：准备数据列表
+        for i, segment in enumerate(segments):  #? 新增
+            segment_data = {  #? 新增
+                'text': segment,  #? 新增
+                'index': i + 1,  #? 新增
+                'project_name': project_name,  #? 新增
+                'add_subtitles': add_subtitles,  #? 新增
+                'subtitle_format': subtitle_format,  #? 新增
+                'subtitle_style': subtitle_style,  #? 新增
+                'max_audio_duration': self.max_audio_duration,  #? 新增
+                'final_videos_dir': self.final_videos_dir,  #? 新增
+                'subtitles_dir': self.subtitles_dir,  #? 新增
+                'estimated_chars_per_second': self.estimated_chars_per_second  #? 新增
+            }  #? 新增
+            segment_data_list.append(segment_data)  #? 新增
+        
+        # 处理片段  #? 新增
+        start_time = time.time()  #? 新增
+        
+        if use_multiprocessing and len(segments) > 1:  #? 新增：多进程处理分支
+            print(f"使用多进程模式处理 {len(segments)} 个片段，最大并行数: {self.max_workers}")  #? 新增
             
-            try:
-                # 生成随机种子
-                seed = self.generate_random_seed()
-                print(f"使用随机种子: {seed}")
-                
-                # 生成语音
-                print("生成语音...")
-                voice_path, audio_duration = self.tts_module.generate_voice(
-                    segment, f"{segment_id}_voice"
-                )
-                
-                # 检查实际时长是否超限
-                if audio_duration > self.max_audio_duration:
-                    print(f"警告: 实际音频时长 {audio_duration:.2f}秒 超过限制 {self.max_audio_duration}秒")
-                
-                # 生成图片
-                print("生成图片...")
-                image_paths = self.news_bot.image_module.generate_image(
-                    segment, f"{segment_id}_image",
-                    ratio="16:9", seed=seed
-                )
-                
-                # 生成视频（固定5秒）
-                print("生成视频...")
-                video_path = self.news_bot.video_module.generate_video(
-                    segment, 5.0, image_paths, f"{segment_id}_video",
-                    resolution="720p", ratio="16:9"
-                )
-                
-                # 合并音频和视频
-                print("合并音视频...")
-                temp_video_path = os.path.join(
-                    self.final_videos_dir, f"{segment_id}_temp.mp4"
-                )
-                
-                merged_video = self.merge_audio_video(
-                    voice_path, video_path, temp_video_path
-                )
-                
-                final_video_path = None
-                subtitle_path = None
-                
-                if merged_video and add_subtitles:
-                    # 创建字幕文件
-                    print("创建字幕...")
-                    subtitle_base_path = os.path.join(self.subtitles_dir, f"{segment_id}_subtitle")
-                    subtitle_path = self.create_subtitle_file(
-                        segment, audio_duration, subtitle_base_path, subtitle_format
-                    )
-                    
-                    # 将字幕添加到视频
-                    print("添加字幕到视频...")
-                    final_video_path = os.path.join(
-                        self.final_videos_dir, f"{segment_id}_final.mp4"
-                    )
-                    
-                    final_video_with_subtitles = self.add_subtitles_to_video(
-                        merged_video, subtitle_path, final_video_path, subtitle_style
-                    )
-                    
-                    if final_video_with_subtitles:
-                        # 删除临时视频文件
-                        if os.path.exists(temp_video_path):
-                            os.remove(temp_video_path)
-                        final_video_path = final_video_with_subtitles
-                    else:
-                        # 如果添加字幕失败，使用无字幕版本
-                        print("字幕添加失败，使用无字幕版本")
-                        final_video_path = temp_video_path
-                
-                elif merged_video:
-                    # 不添加字幕，直接使用合并后的视频
-                    final_video_path = os.path.join(
-                        self.final_videos_dir, f"{segment_id}_final.mp4"
-                    )
-                    
-                    # 重命名临时文件
-                    if os.path.exists(temp_video_path):
-                        os.rename(temp_video_path, final_video_path)
-                
-                segment_result = {
-                    "segment_id": segment_id,
-                    "segment_index": i + 1,
-                    "text": segment,
-                    "voice_path": voice_path,
-                    "image_paths": image_paths,
-                    "video_path": video_path,
-                    "final_video_path": final_video_path,
-                    "subtitle_path": subtitle_path,
-                    "audio_duration": audio_duration,
-                    "estimated_duration": self.estimate_audio_duration(segment),
-                    "seed": seed,
-                    "has_subtitles": add_subtitles and subtitle_path is not None,
-                    "subtitle_format": subtitle_format if add_subtitles else None,
-                    "status": "success" if final_video_path else "failed"
-                }
-                
-                results.append(segment_result)
-                print(f"片段 {segment_id} 处理完成")
-                
-            except Exception as e:
-                print(f"处理片段 {segment_id} 时出错: {e}")
-                segment_result = {
-                    "segment_id": segment_id,
-                    "segment_index": i + 1,
-                    "text": segment,
-                    "status": "failed",
-                    "error": str(e)
-                }
-                results.append(segment_result)
+            # 使用进程池处理  #? 新增
+            with mp.Pool(processes=self.max_workers) as pool:  #? 新增
+                results = pool.map(process_single_segment_worker, segment_data_list)  #? 新增
+            
+        else:  #? 新增：单进程处理分支
+            print("使用单进程模式处理片段")  #? 新增
+            results = []  #? 新增
+            for segment_data in segment_data_list:  #? 新增
+                result = process_single_segment_worker(segment_data)  #? 新增
+                results.append(result)  #? 新增
+        
+        end_time = time.time()  #? 新增
+        processing_time = end_time - start_time  #? 新增
+        
+        print(f"\n所有片段处理完成，耗时: {processing_time:.2f} 秒")  #? 新增
+        
+        # 按索引排序结果（多进程可能导致顺序混乱）  #? 新增
+        results.sort(key=lambda x: x['segment_index'])  #? 新增
         
         # 汇总结果
         total_segments = len(segments)
@@ -1389,6 +1794,9 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
             "max_audio_duration": self.max_audio_duration,
             "subtitles_enabled": add_subtitles,
             "subtitle_format": subtitle_format,
+            "multiprocessing_used": use_multiprocessing,  #? 新增：记录是否使用多进程
+            "max_workers": self.max_workers if use_multiprocessing else 1,  #? 新增：记录工作进程数
+            "processing_time_seconds": processing_time,  #? 新增：记录处理时间
             "segments": results,
             "output_directory": self.final_videos_dir,
             "subtitles_directory": self.subtitles_dir,
@@ -1404,6 +1812,8 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
         print(f"项目名称: {project_name}")
         print(f"总片段数: {total_segments}")
         print(f"成功片段数: {successful_segments}")
+        print(f"处理模式: {'多进程' if use_multiprocessing else '单进程'}")
+        print(f"处理时间: {processing_time:.2f} 秒")
         print(f"字幕状态: {'已添加' if add_subtitles else '未添加'}")
         print(f"输出目录: {self.final_videos_dir}")
         print(f"字幕目录: {self.subtitles_dir}")
@@ -1411,6 +1821,12 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
         
         return final_result
 
+    def _process_segment_wrapper(self, segment_data):
+        """
+        多进程处理的包装函数
+        """
+        return self.process_single_segment(segment_data)
+        
 def main():
     """主函数"""
     # 长AI新闻示例
