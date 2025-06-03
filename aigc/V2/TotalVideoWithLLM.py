@@ -5,7 +5,7 @@ import subprocess
 from datetime import datetime
 from typing import List, Tuple
 import json
-from MultimodalRobot import MultimodalNewsBot, TTSModule
+from aigc.V2.MultimodalRobot import MultimodalNewsBot, TTSModule
 from langchain_openai import ChatOpenAI
 import multiprocessing as mp  #? 新增：添加多进程支持
 import time  #? 新增：添加时间计算功能
@@ -421,9 +421,9 @@ class LongNewsProcessor:
             分割要求：
             1. 句子必须保持语义完整和连贯性
             2. 每个句子应包含25-30个字符，不要太短
-            3. 尽量按照自然的语言停顿和语义单元进行分割
+            3. 按照自然的语言停顿和语义单元进行分割
             4. 整个文本大约需要分成{min_segments_needed}个句子左右
-            5. 最短的句子也应至少包含10个字符
+            5. 最短的句子也应至少包含12个字符
             
             返回格式要求：
             - 只返回JSON数组，格式为: ["句子1", "句子2", ...]
@@ -929,55 +929,6 @@ class LongNewsProcessor:
         
         return result
     
-    def smart_split_text(self, text: str) -> List[str]:
-        """
-        智能分割文本，使用LLM进行分词并基于估算时长控制段落长度
-        
-        Args:
-            text: 要分割的文本
-            
-        Returns:
-            List[str]: 分割后的文本段落列表
-        """
-        # 清理文本
-        text = text.strip()
-        
-        # 如果文本估算时长小于限制，直接返回
-        if self.estimate_audio_duration(text) <= self.max_audio_duration:
-            return [text]
-        
-        # 使用LLM进行分词
-        print("使用DeepSeek V3 LLM进行文本分词...")
-        tokens = self.segment_chinese_text_with_llm(text)
-        print(f"LLM分词完成，得到 {len(tokens)} 个语义单元")
-        
-        segments = []
-        current_segment = ""
-        
-        for token in tokens:
-            test_segment = current_segment + token
-            
-            # 检查是否超过时长限制
-            if self.estimate_audio_duration(test_segment) <= self.max_audio_duration:
-                current_segment = test_segment
-            else:
-                # 如果当前段落不为空，保存它
-                if current_segment.strip():
-                    segments.append(current_segment.strip())
-                
-                # 如果单个token就超过限制，需要强制分割
-                if self.estimate_audio_duration(token) > self.max_audio_duration:
-                    sub_segments = self.force_split_long_token(token)
-                    segments.extend(sub_segments)
-                    current_segment = ""
-                else:
-                    current_segment = token
-        
-        # 添加最后一个段落
-        if current_segment.strip():
-            segments.append(current_segment.strip())
-        
-        return segments
     
     def force_split_long_token(self, token: str) -> List[str]:
         """
@@ -1222,7 +1173,7 @@ class LongNewsProcessor:
         end_time = audio_duration
 
         # 分行（比如每20字一行）
-        max_chars_per_line = 20
+        max_chars_per_line = 25
         lines = self.split_text_for_subtitles(text, max_chars_per_line)
 
         with open(subtitle_path, 'w', encoding='utf-8') as f:
@@ -1236,110 +1187,6 @@ class LongNewsProcessor:
         print(f"SRT字幕文件已创建: {subtitle_path}")
         return subtitle_path
     
-    def create_ass_subtitle(self, text: str, audio_duration: float, output_path: str) -> str:
-        """
-        创建ASS格式字幕文件（支持更丰富的样式）
-        
-        Args:
-            text: 字幕文本
-            audio_duration: 音频时长
-            output_path: 输出文件路径（不含扩展名）
-            
-        Returns:
-            str: 字幕文件路径
-        """
-        subtitle_path = f"{output_path}.ass"
-        
-        def format_time(seconds):
-            """格式化时间为ASS格式 H:MM:SS.cc"""
-            hours = int(seconds // 3600)
-            minutes = int((seconds % 3600) // 60)
-            secs = int(seconds % 60)
-            centisecs = int((seconds % 1) * 100)
-            return f"{hours}:{minutes:02d}:{secs:02d}.{centisecs:02d}"
-        
-        # ASS文件头部
-        ass_header = """[Script Info]
-Title: AI News Subtitle
-ScriptType: v4.00+
-
-[V4+ Styles]
-Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
-Style: Default,Arial,20,&H00FFFFFF,&H000000FF,&H00000000,&H80000000,1,0,0,0,100,100,0,0,1,2,0,2,10,10,10,1
-
-[Events]
-Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
-"""
-        
-        # 计算字幕显示时间
-        start_time = 0.0
-        end_time = audio_duration
-        
-        with open(subtitle_path, 'w', encoding='utf-8') as f:
-            f.write(ass_header)
-            
-            # 如果文本较长，分段显示
-            max_chars_per_line = 20
-            if len(text) > max_chars_per_line:
-                segments = self.split_text_for_subtitles(text, max_chars_per_line)
-                segment_duration = audio_duration / len(segments)
-                
-                for i, segment in enumerate(segments):
-                    segment_start = i * segment_duration
-                    segment_end = (i + 1) * segment_duration
-                    
-                    f.write(f"Dialogue: 0,{format_time(segment_start)},{format_time(segment_end)},Default,,0,0,0,,{segment}\n")
-            else:
-                f.write(f"Dialogue: 0,{format_time(start_time)},{format_time(end_time)},Default,,0,0,0,,{text}\n")
-        
-        print(f"ASS字幕文件已创建: {subtitle_path}")
-        return subtitle_path
-    
-    def create_vtt_subtitle(self, text: str, audio_duration: float, output_path: str) -> str:
-        """
-        创建VTT格式字幕文件
-        
-        Args:
-            text: 字幕文本
-            audio_duration: 音频时长
-            output_path: 输出文件路径（不含扩展名）
-            
-        Returns:
-            str: 字幕文件路径
-        """
-        subtitle_path = f"{output_path}.vtt"
-        
-        def format_time(seconds):
-            """格式化时间为VTT格式 HH:MM:SS.mmm"""
-            hours = int(seconds // 3600)
-            minutes = int((seconds % 3600) // 60)
-            secs = int(seconds % 60)
-            millisecs = int((seconds % 1) * 1000)
-            return f"{hours:02d}:{minutes:02d}:{secs:02d}.{millisecs:03d}"
-        
-        with open(subtitle_path, 'w', encoding='utf-8') as f:
-            f.write("WEBVTT\n\n")
-            
-            # 如果文本较长，分段显示
-            max_chars_per_line = 20
-            if len(text) > max_chars_per_line:
-                segments = self.split_text_for_subtitles(text, max_chars_per_line)
-                segment_duration = audio_duration / len(segments)
-                
-                for i, segment in enumerate(segments):
-                    segment_start = i * segment_duration
-                    segment_end = (i + 1) * segment_duration
-                    
-                    f.write(f"{i + 1}\n")
-                    f.write(f"{format_time(segment_start)} --> {format_time(segment_end)}\n")
-                    f.write(f"{segment}\n\n")
-            else:
-                f.write("1\n")
-                f.write(f"{format_time(0.0)} --> {format_time(audio_duration)}\n")
-                f.write(f"{text}\n\n")
-        
-        print(f"VTT字幕文件已创建: {subtitle_path}")
-        return subtitle_path
     
     def add_subtitles_to_video(self, video_path: str, subtitle_path: str, output_path: str, 
                              subtitle_style: dict = None) -> str:

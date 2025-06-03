@@ -1,7 +1,8 @@
-from TotalVideoWithLLM import LongNewsProcessor
-from video_concatenator import VideoConcatenator
+import os
+from aigc.V2.TotalVideoWithLLM import LongNewsProcessor
+from aigc.V2.video_concatenator import VideoConcatenator
 
-def process_and_concatenate_news(news_text, project_name=None, auto_concatenate=True, 
+def process_and_concatenate_news(news_text, project_name=None, output_path=None, auto_concatenate=True, 
                                 use_multiprocessing=True, max_workers=None):
     """
     Process a news text to generate video segments and then concatenate them
@@ -18,8 +19,8 @@ def process_and_concatenate_news(news_text, project_name=None, auto_concatenate=
     """
     # Step 1: Process the news text and generate video segments
     processor = LongNewsProcessor(
-        max_chars_per_segment=25,  # Characters per segment
-        max_audio_duration=4.8,   # Maximum audio duration in seconds
+        max_chars_per_segment=28,  # Characters per segment
+        max_audio_duration=4.98,   # Maximum audio duration in seconds
         max_workers=max_workers    # Number of parallel processes
     )
     
@@ -49,13 +50,21 @@ def process_and_concatenate_news(news_text, project_name=None, auto_concatenate=
     # Step 2: Concatenate the generated videos
     if auto_concatenate and segments_count > 0:
         print(f"\n=== Starting video concatenation ===")
-        concatenator = VideoConcatenator(output_dir="output/concatenated")
+         # Get output directory and filename from output_path if provided
+        if output_path:
+            output_dir = os.path.dirname(output_path)
+            output_filename = os.path.basename(output_path)
+        else:
+            output_dir = "output/concatenated"
+            output_filename = f"{project_name}_complete.mp4" if project_name else None
+            
+        concatenator = VideoConcatenator(output_dir=output_dir)
         
         # Automatically concatenate the videos
         concatenated_video = concatenator.auto_concatenate(
             search_dir=segments_dir,         # The directory with video segments
-            output_filename=f"{project_name}_complete.mp4" if project_name else None,
-            pattern="*_final.mp4",           # Pattern to match final videos
+            output_filename=output_filename,
+            pattern="*.mp4",           # Pattern to match final videos
             force_reencode=False             # Auto-determine if re-encoding is needed
         )
         
@@ -78,7 +87,11 @@ if __name__ == "__main__":
     long_news = """
 【AI日报】2025年05月30日
 1. 企业级AI战略加速落地！传微软与巴克莱银行签订10万份Copilot许可证
-微软在全员大会上展示企业级AI业务进展，其中与巴克莱银行达成的10万份Copilot许可证交易成为焦点。
+微软在全员大会上展示企业级AI业务进展，其中与巴克莱银行达成的10万份Copilot许可证交易成为焦点。这一合作标志着企业级AI应用的快速落地，预计将推动更多金融机构采用AI技术，对行业具有变革性影响。
+2. 不只是"小升级"！DeepSeek-R1新版获海外盛赞
+DeepSeek最新发布的R1模型升级版在全球AI领域掀起热议，多位国际科技大佬及行业高管盛赞其技术突破。实测显示该模型在多项基准测试中表现优异，标志着中国AI公司在技术上的重大进步。
+3. 云从科技多模态大模型「CongRong-v2.0」登顶全球榜单
+云从科技自主研发的「从容大模型」在国际评测平台OpenCompass最新全球多模态榜单中，以80.7分的综合成绩登顶榜首。这一成绩标志着中国在多模态AI领域的技术实力获得国际认可。
     """
     
     # Process and concatenate with multiprocessing enabled
@@ -87,7 +100,7 @@ if __name__ == "__main__":
         project_name="ai_news_0530_mp",
         auto_concatenate=True,
         use_multiprocessing=True,  # Enable multiprocessing
-        max_workers=3              # Use 3 parallel processes
+        max_workers=6              # Use 3 parallel processes
     )
     
     # Print results

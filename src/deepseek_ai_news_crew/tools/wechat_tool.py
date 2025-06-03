@@ -11,6 +11,7 @@ import pathlib
 from pathlib import Path
 import time
 import asyncio
+from aigc.V2.main import process_and_concatenate_news
 
 # 设置日志
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -150,9 +151,8 @@ class WechatMessageTool(BaseTool):
 
                 try:
                     logger.info("开始生成视频文件")
-                    # 调用enhancedRobot.py中的generate_full_news生成视频
-                    from aigc.enhancedRobot import generate_full_news_parallel
-                    output_path = generate_full_news_parallel(clean_content)
+                    # 调用aigec.V2.main中的process_and_concatenate_news生成视频
+                    output_path = process_and_concatenate_news(clean_content)
                     
                     if output_path and os.path.exists(output_path):
                         logger.info(f"成功生成视频文件: {output_path}")
