@@ -1,5 +1,5 @@
-from TotalVideoWithLLM import LongNewsProcessor
-from video_concatenator import VideoConcatenator
+from TotalVideoWithLLM import LongNewsProcessor#!
+from video_concatenator import VideoConcatenator#!
 
 class NewsVideoGenerator:
     """
@@ -20,8 +20,8 @@ class NewsVideoGenerator:
                           max_audio_duration=4.8,
                           use_multiprocessing=True, 
                           max_workers=3,
-                          add_subtitles=True,
-                          subtitle_format="srt"):
+                          add_subtitles=True
+                          ):
         """
         处理新闻文本并生成视频
         
@@ -33,7 +33,6 @@ class NewsVideoGenerator:
             use_multiprocessing: 是否使用多进程，默认True
             max_workers: 最大进程数，默认3
             add_subtitles: 是否添加字幕，默认True
-            subtitle_format: 字幕格式，默认"srt"
             
         返回:
             dict: 包含处理结果的字典
@@ -56,9 +55,8 @@ class NewsVideoGenerator:
         result = processor.process_long_news(
             news_text,
             project_name=project_name,
-            calibrate=True,                          # 是否校准语速
+            calibrate=False,                          # 是否校准语速
             add_subtitles=add_subtitles,             # 添加字幕
-            subtitle_format=subtitle_format,         # 字幕格式
             use_multiprocessing=use_multiprocessing  # 启用/禁用多进程
         )
         
@@ -120,14 +118,6 @@ if __name__ == "__main__":
     
     news_text = """
 【AI日报】2025年06月04日
-1. DeepSeek会在全球AI竞争中沉沦吗？
-2025年1月20日，DeepSeek发布R1模型，部分性能可以追赶上当时最先进的大模型之一OpenAI o1模型，而且能做到完全开源，7天内用户增长至1亿，登顶中国和美国苹果应用商店。这一突破性进展标志着中国AI企业在全球竞争中的地位显著提升。
-2. 估值432亿的全球龙头，英伟达投了
-IBM、谷歌等多家公司在量子机器学习领域进行研究，探索量子算法提高数据处理效率和模型训练速度。量子计算能够处理更大的数据集，优化机器学习模型，从而在图像识别等领域实现突破。英伟达此次投资将进一步推动量子计算与AI的融合。
-3. AI agent 和Agentic AI 到底有啥区别？康奈尔大学最新论文
-康奈尔大学最新研究详细阐述了AI智能体与Agentic AI系统的核心区别。研究指出，Agentic AI系统代表了一种更高级的组织形式，能够像跨国公司一样协调多个AI智能体完成复杂任务，这为未来AI系统设计提供了新的方向。
-4. 突破数据与算力孤岛：释放遥感基础模型潜力
-最新研究提出突破数据与算力孤岛的方法，释放遥感基础模型在通用地球观测智能中的潜力。该技术将显著提升遥感数据处理效率，为环境监测、灾害预警等领域提供更强大的支持。
 5. 可信数据空间等AI领域标准参编，探索北电数智的创新实践
 北电数智积极参与AI行业相关标准制定，在数据要素流通与安全体系建设、算力与模型国产化技术突破及AIDC智算中心建设方面取得显著成果。这些实践为中国AI基础设施的自主可控发展提供了重要参考。
 6. 水利标准AI大模型正式发布
@@ -138,7 +128,7 @@ IBM、谷歌等多家公司在量子机器学习领域进行研究，探索量�
     
     result = generator.generate_news_video(
         news_text=news_text,
-        output_filename="ai_news_0530.mp4",
+        output_filename="ai_news_0604.mp4",
         use_multiprocessing=True,
         max_workers=6
     )
@@ -164,7 +154,6 @@ IBM、谷歌等多家公司在量子机器学习领域进行研究，探索量�
 #     use_multiprocessing=True,      # 可选：是否使用多进程
 #     max_workers=4,                 # 可选：最大进程数
 #     add_subtitles=True,            # 可选：是否添加字幕
-#     subtitle_format="srt"          # 可选：字幕格式
 # )
 
 # # 检查结果

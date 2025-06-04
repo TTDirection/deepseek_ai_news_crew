@@ -11,6 +11,7 @@ import pathlib
 from pathlib import Path
 import time
 import asyncio
+from aigc.V2.main import NewsVideoGenerator
 
 # 设置日志
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -150,10 +151,17 @@ class WechatMessageTool(BaseTool):
 
                 try:
                     logger.info("开始生成视频文件")
-                    # 调用enhancedRobot.py中的generate_full_news生成视频
-                    from aigc.enhancedRobot import generate_full_news_parallel
-                    output_path = generate_full_news_parallel(clean_content)
-                    
+                    # 调用aigec.V2.main中的generate_news_video生成视频
+                    generator = NewsVideoGenerator(output_dir=str(outputs_dir))
+                    result = generator.generate_news_video(
+                        news_text=clean_content,
+                        output_filename=video_file.name, # 只传递文件名，让生成器处理路径
+                        use_multiprocessing=True, # 参考示例开启多进程
+                        max_workers=6 # 参考示例设置最大进程数
+                    )
+
+                    output_path = result.get('concatenation', {}).get('output_path')
+
                     if output_path and os.path.exists(output_path):
                         logger.info(f"成功生成视频文件: {output_path}")
                         # 更新mp3_file变量为视频文件路径
@@ -295,7 +303,7 @@ class WechatMessageTool(BaseTool):
                 files = {
                     'file': (os.path.basename(mp3_file), f)
                 }
-                upload_response = requests.post(upload_url, files=files, timeout=10)
+                upload_response = requests.post(upload_url, files=files, timeout=60)
 
                 if upload_response.status_code == 200:
                     upload_result = upload_response.json()
