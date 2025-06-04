@@ -157,7 +157,9 @@ class WechatMessageTool(BaseTool):
                         news_text=clean_content,
                         output_filename=video_file.name, # 只传递文件名，让生成器处理路径
                         use_multiprocessing=True, # 参考示例开启多进程
-                        max_workers=6 # 参考示例设置最大进程数
+                        max_workers=6, # 参考示例设置最大进程数
+                        compress_video=True,     # 启用视频压缩
+                        target_size_mb=20        # 压缩目标大小为20MB
                     )
 
                     output_path = result.get('concatenation', {}).get('output_path')

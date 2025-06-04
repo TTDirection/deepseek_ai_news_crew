@@ -1,5 +1,8 @@
-from TotalVideoWithLLM import LongNewsProcessor#!
-from video_concatenator import VideoConcatenator#!
+from .TotalVideoWithLLM import LongNewsProcessor
+from .video_concatenator import VideoConcatenator
+import os
+import subprocess
+import math
 
 class NewsVideoGenerator:
     """
@@ -20,7 +23,9 @@ class NewsVideoGenerator:
                           max_audio_duration=4.8,
                           use_multiprocessing=True, 
                           max_workers=3,
-                          add_subtitles=True
+                          add_subtitles=True,
+                          compress_video=False,
+                          target_size_mb=None
                           ):
         """
         处理新闻文本并生成视频
@@ -33,6 +38,8 @@ class NewsVideoGenerator:
             use_multiprocessing: 是否使用多进程，默认True
             max_workers: 最大进程数，默认3
             add_subtitles: 是否添加字幕，默认True
+            compress_video: 是否压缩视频，默认False
+            target_size_mb: 目标视频大小(MB)，默认None表示不压缩
             
         返回:
             dict: 包含处理结果的字典
@@ -92,8 +99,44 @@ class NewsVideoGenerator:
                 'output_path': concatenated_video,
                 'segment_count': segments_count
             }
+            
+            # 步骤3: 如果需要，压缩视频到指定大小
+            if compress_video and target_size_mb and concatenated_video and os.path.exists(concatenated_video):
+                print(f"\n=== 开始视频压缩 ===")
+                print(f"目标大小: {target_size_mb} MB")
+                
+                # 创建压缩视频输出路径
+                compressed_path = self._compress_video(
+                    input_file=concatenated_video,
+                    target_size_mb=target_size_mb
+                )
+                
+                if compressed_path:
+                    result['compression'] = {
+                        'status': 'success',
+                        'original_path': concatenated_video,
+                        'compressed_path': compressed_path,
+                        'target_size_mb': target_size_mb,
+                        'actual_size_mb': os.path.getsize(compressed_path) / (1024 * 1024)
+                    }
+                    # 更新最终输出路径
+                    result['concatenation']['output_path'] = compressed_path
+                else:
+                    result['compression'] = {
+                        'status': 'failed',
+                        'reason': '压缩过程失败'
+                    }
+            else:
+                result['compression'] = {
+                    'status': 'skipped',
+                    'reason': '未启用压缩或没有生成视频'
+                }
         else:
             result['concatenation'] = {
+                'status': 'skipped',
+                'reason': '没有生成视频片段'
+            }
+            result['compression'] = {
                 'status': 'skipped',
                 'reason': '没有生成视频片段'
             }
@@ -102,6 +145,12 @@ class NewsVideoGenerator:
         if result['concatenation']['status'] == 'success':
             print(f"\n✅ 完整处理成功!")
             print(f"最终视频: {result['concatenation']['output_path']}")
+            
+            if result['compression']['status'] == 'success':
+                original_size = os.path.getsize(result['compression']['original_path']) / (1024 * 1024)
+                compressed_size = result['compression']['actual_size_mb']
+                print(f"视频已压缩: {original_size:.2f}MB → {compressed_size:.2f}MB")
+                
             print(f"总处理时间: {result['processing_time_seconds']:.2f} 秒")
         else:
             print(f"\n⚠️ 视频片段已生成但合并{result['concatenation']['status']}")
@@ -109,6 +158,102 @@ class NewsVideoGenerator:
                 print("请查看日志获取错误详情")
                 
         return result
+    
+    def _compress_video(self, input_file, target_size_mb): #*
+        """ #*
+        压缩视频到指定大小，并覆盖原文件 #*
+        
+        参数: #*
+            input_file: 输入视频文件路径 #*
+            target_size_mb: 目标大小(MB) #*
+            
+        返回: #*
+            str: 压缩后的视频路径，如果失败则返回None #*
+        """ #*
+        if not os.path.exists(input_file): #*
+            print(f"错误: 输入文件不存在 {input_file}") #*
+            return None #*
+            
+        try: #*
+            # 获取原始视频信息 #*
+            file_size_bytes = os.path.getsize(input_file) #*
+            file_size_mb = file_size_bytes / (1024 * 1024) #*
+            
+            # 如果文件已经小于目标大小，直接返回原文件 #*
+            if file_size_mb <= target_size_mb: #*
+                print(f"视频已经小于目标大小 ({file_size_mb:.2f}MB <= {target_size_mb}MB)，无需压缩") #*
+                return input_file #*
+                
+            # 获取视频时长 #*
+            cmd = ['ffprobe', '-v', 'error', '-show_entries', 'format=duration',  #*
+                '-of', 'default=noprint_wrappers=1:nokey=1', input_file] #*
+            duration = float(subprocess.check_output(cmd).decode('utf-8').strip()) #*
+            
+            # 计算目标比特率 (kb/s) = (target_size_bytes * 8) / (duration_seconds * 1000) #*
+            target_size_bytes = target_size_mb * 1024 * 1024 #*
+            target_bitrate_kbps = int((target_size_bytes * 8) / (duration * 1000)) #*
+            
+            # 限制最小比特率为100kbps，以确保视频质量 #*
+            target_bitrate_kbps = max(target_bitrate_kbps, 100) #*
+            
+            # 创建临时输出文件路径 #*
+            temp_output_file = f"{input_file}.temp.mp4" #*
+            
+            # 构建ffmpeg命令 #*
+            cmd = [ #*
+                'ffmpeg', '-i', input_file, #*
+                '-c:v', 'libx264', '-crf', '28',  # 视频压缩，CRF越高压缩率越高，质量越低 #*
+                '-preset', 'slower',              # 较慢的编码速度，但能获得更好的压缩率 #*
+                '-b:v', f'{target_bitrate_kbps}k',  # 目标视频比特率 #*
+                '-maxrate', f'{int(target_bitrate_kbps * 1.5)}k',  # 最大比特率 #*
+                '-bufsize', f'{target_bitrate_kbps * 2}k',         # 缓冲区大小 #*
+                '-c:a', 'aac', '-b:a', '64k',    # 音频压缩到64kbps AAC #*
+                '-y',                            # 覆盖输出文件 #*
+                temp_output_file #*
+            ] #*
+            
+            print(f"正在压缩视频: {input_file}") #*
+            print(f"目标比特率: {target_bitrate_kbps}kbps") #*
+            
+            # 执行ffmpeg命令 #*
+            process = subprocess.Popen( #*
+                cmd,  #*
+                stdout=subprocess.PIPE,  #*
+                stderr=subprocess.PIPE #*
+            ) #*
+            stdout, stderr = process.communicate() #*
+            
+            if process.returncode != 0: #*
+                print(f"视频压缩失败: {stderr.decode('utf-8')}") #*
+                if os.path.exists(temp_output_file): #*
+                    os.remove(temp_output_file) #*
+                return None #*
+                
+            # 检查压缩后的文件大小 #*
+            compressed_size_mb = os.path.getsize(temp_output_file) / (1024 * 1024) #*
+            
+            # 如果压缩后文件仍然超过目标大小10%以上，可以考虑二次压缩 #*
+            if compressed_size_mb > target_size_mb * 1.1 and compressed_size_mb > 1:  # 确保至少有1MB #*
+                print(f"压缩后仍超过目标大小，尝试二次压缩...") #*
+                # 删除临时文件 #*
+                os.remove(temp_output_file) #*
+                # 减少目标比特率并重试 #*
+                return self._compress_video(input_file, target_size_mb) #*
+            
+            print(f"压缩完成: {file_size_mb:.2f}MB → {compressed_size_mb:.2f}MB") #*
+            
+            # 用压缩后的文件替换原文件 #*
+            os.replace(temp_output_file, input_file) #*
+            
+            return input_file #*
+            
+        except Exception as e: #*
+            print(f"视频压缩过程中发生错误: {str(e)}") #*
+            # 清理可能存在的临时文件 #*
+            temp_output_file = f"{input_file}.temp.mp4" #*
+            if os.path.exists(temp_output_file): #*
+                os.remove(temp_output_file) #*
+            return None #*
 
 
 # 示例代码
@@ -118,46 +263,27 @@ if __name__ == "__main__":
     
     news_text = """
 【AI日报】2025年06月04日
-5. 可信数据空间等AI领域标准参编，探索北电数智的创新实践
-北电数智积极参与AI行业相关标准制定，在数据要素流通与安全体系建设、算力与模型国产化技术突破及AIDC智算中心建设方面取得显著成果。这些实践为中国AI基础设施的自主可控发展提供了重要参考。
-6. 水利标准AI大模型正式发布
-由水利部国科司组织中国水科院自主研发的基于多源语料的"水利标准AI大模型"正式发布，标志着我国在水利标准化工具方面迈出了重要的一步。该模型将显著提升水利行业标准制定的效率和准确性。
-7. 魏桥创业集团"智铝大模型"入选攻关项目
-魏桥创业集团"智铝大模型"入选山东省工业领域行业大模型"揭榜挂帅"攻关项目名单。该项目将推动AI技术在铝业生产中的深度应用，提升生产效率和产品质量。
+1. Google发布Veo 3与Gemini 2.5
+Google全球发布了Veo 3视频生成模型和Gemini 2.5大模型，覆盖73个国家并支持Gemini App。Veo 3在视频生成质量和连贯性上有显著提升，能够生成更自然流畅的视频内容。Gemini 2.5则在多模态理解和复杂推理能力上取得突破，支持更长的上下文窗口和更精准的语义理解，标志着Google在AI领域的又一重大进展。
+2. 终于可以免费使用Sora了！微软版Sora今日开放
+微软宣布在Bing应用中引入视频创建器(Bing Video Creator)，该功能使用OpenAI的Sora模型，允许用户根据文本提示生成视频。这是Sora技术首次大规模向公众开放，标志着多模态AI技术的重要商业化进展。用户可以通过简单的文本描述生成高质量视频内容，大大降低了视频创作门槛。
+3. 冲击自回归，扩散模型正在改写下一代通用模型范式
+最新研究表明扩散模型正在挑战传统的自回归模型范式。Gemini Diffusion展示了比传统模型快5倍的生成速度，同时保持相当的编程性能。这种新型架构在保持生成质量的同时显著提升了效率，可能会改变未来大模型的发展方向，为AI生成内容开辟新路径。
+4. DeepSeek重磅升级，影响太大，冲上热搜
+DeepSeek发布了R1模型的重大更新，主要提升了模型在数学、编程和通用逻辑等方面的思考能力。这次更新使模型在复杂推理任务上的表现显著提高，特别是在数学证明和代码生成方面取得突破性进展。该升级展示了国内大模型技术的重要进步，引发行业广泛关注。
+5. SridBench：首个科研插图绘制基准测试揭示AI绘图能力差距
+SridBench是首个专门评估AI科研插图绘制能力的基准测试。测试结果显示，虽然Stable Diffusion等模型在视觉质量上表现良好，但GPT-4o-image等多模态模型在语义理解和结构组合方面展现出更强的能力。该基准为科研插图的AI生成能力提供了标准化评估体系。
+6. 2025年中国多模态大模型行业模型现状图像、视频、音频
+文章分析了中国多模态大模型的发展现状，重点讨论了视觉模态的突破。比较了Google Gemini、Codi-2等国际方案与国内技术的发展路径，指出国内在特定领域应用方面取得显著进展。同时展望了"Any-to-Any"大模型的未来前景，认为跨模态理解将是下一阶段发展重点。
+7. DeepSeek等模型训练所依赖的合成数据，BARE提出了新思路
+BARE提出的合成数据新方法已被GPT-4和Llama 3等模型采用。该方法通过让LLM对自己生成的回复打分并形成新的训练数据，可以持续提升模型性能。这种自我改进机制为解决高质量训练数据不足问题提供了创新思路，有望推动大模型训练效率的进一步提升。
     """
     
     result = generator.generate_news_video(
         news_text=news_text,
         output_filename="ai_news_0604.mp4",
         use_multiprocessing=True,
-        max_workers=6
+        max_workers=6,
+        compress_video=True,     # 启用视频压缩
+        target_size_mb=16        # 压缩目标大小为20MB
     )
-#外部调用示例
-# from aigc.V2.main import NewsVideoGenerator
-
-# # 创建生成器实例，可以指定输出目录
-# generator = NewsVideoGenerator(output_dir="你的输出路径")
-
-# # 准备新闻文本
-# news_text = """
-# 【AI日报】2025年06月04日
-# 1. 人工智能研究取得重大突破，新型模型准确率提升30%
-# 2. 全球科技巨头纷纷加大AI领域投资，市场竞争加剧
-# """
-
-# # 生成视频
-# result = generator.generate_news_video(
-#     news_text=news_text,           # 新闻内容
-#     output_filename="daily_ai_news_0604.mp4",  # 输出文件名
-#     chars_per_segment=30,          # 可选：每段字符数
-#     max_audio_duration=5.0,        # 可选：最大音频时长
-#     use_multiprocessing=True,      # 可选：是否使用多进程
-#     max_workers=4,                 # 可选：最大进程数
-#     add_subtitles=True,            # 可选：是否添加字幕
-# )
-
-# # 检查结果
-# if result['concatenation']['status'] == 'success':
-#     print(f"视频生成成功: {result['concatenation']['output_path']}")
-# else:
-#     print(f"视频生成失败或跳过: {result['concatenation']['reason']}")

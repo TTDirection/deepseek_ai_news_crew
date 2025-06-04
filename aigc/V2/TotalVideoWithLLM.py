@@ -5,7 +5,7 @@ import subprocess
 from datetime import datetime
 from typing import List, Tuple
 import json
-from MultimodalRobot import MultimodalNewsBot, TTSModule#! .
+from .MultimodalRobot import MultimodalNewsBot, TTSModule#! .
 from langchain_openai import ChatOpenAI
 import multiprocessing as mp
 import time
@@ -30,28 +30,30 @@ def merge_audio_video_global(audio_path: str, video_path: str, output_path: str)
             ]  #?
             audio_duration = float(subprocess.check_output(cmd_probe).decode('utf-8').strip())  #?
             
-            # 如果音频超过5秒，进行倍速处理  #?
+            # 如果音频超过5秒，进行时间拉伸处理  #?
             if audio_duration > 5.0:  #?
-                speed_factor = audio_duration / 4.95  # 预留0.05秒余量  #?
+                # 计算需要的时间比率  #?
+                time_ratio = 4.95 / audio_duration  # 预留0.05秒余量  #?
                 temp_audio_path = f"{audio_path}_temp.mp3"  #?
                 
+                # 使用rubberband滤镜，更好地保持音色  #?
                 cmd_speed = [  #?
                     'ffmpeg', '-y',  #?
                     '-i', audio_path,  #?
-                    '-filter:a', f"atempo={speed_factor}",  #?
+                    '-filter:a', f"rubberband=tempo={1/time_ratio}:pitch=1",  #?
                     '-vn', temp_audio_path  #?
                 ]  #?
                 
-                print(f"[进程 {os.getpid()}] 音频时长为 {audio_duration:.2f}秒，超过5秒，调整速度为 {speed_factor:.2f}倍")  #?
+                print(f"[进程 {os.getpid()}] 音频时长为 {audio_duration:.2f}秒，超过5秒，使用rubberband时间拉伸到4.95秒")  #?
                 subprocess.run(cmd_speed, capture_output=True, text=True)  #?
                 
                 # 使用调整后的音频  #?
                 if os.path.exists(temp_audio_path):  #?
                     audio_path = temp_audio_path  #?
             else:  #?
-                print(f"[进程 {os.getpid()}] 音频时长为 {audio_duration:.2f}秒，无需调整速度")  #?
+                print(f"[进程 {os.getpid()}] 音频时长为 {audio_duration:.2f}秒，无需调整时长")  #?
         except Exception as e:  #?
-            print(f"[进程 {os.getpid()}] 检查音频时长出错，跳过速度调整: {e}")  #?
+            print(f"[进程 {os.getpid()}] 检查音频时长出错，跳过时间调整: {e}")  #?
         
         cmd = [
             'ffmpeg', '-y',
@@ -442,30 +444,19 @@ class TextSegmentOptimizer:
         """
         # 检查是否包含编号列表（如1. xxx 2. xxx）
         # 修改：需要完整匹配每个编号项目和其对应内容
-        numbered_items_pattern = r'(\d+\.\s*[^。！？\n]+(?:[。！？][^0-9\n]*)?)'  #*
-        numbered_items = re.findall(numbered_items_pattern, text)  #*
-        
+        # 检查是否包含编号列表（如1. xxx 2. xxx）
+        numbered_items_pattern = r'(\d+\.\s*[^\n]+?)(?=\n\d+\.|\n*$)' #?
+        numbered_items = re.findall(numbered_items_pattern, text) #?
+
         if numbered_items and len(numbered_items) >= 2:
             # 需要确保我们获取完整的内容，而不仅仅是标题
-            complete_items = []  #*
-            for i, item_title in enumerate(numbered_items):  #*
-                # 查找每个编号项的完整内容  #*
-                item_start = text.find(item_title)  #*
-                
-                # 找下一个编号的开始位置，或者文本结尾  #*
-                next_item_start = -1  #*
-                if i < len(numbered_items) - 1:  #*
-                    next_item_start = text.find(numbered_items[i + 1])  #*
-                
-                if next_item_start != -1:  #*
-                    complete_item = text[item_start:next_item_start].strip()  #*
-                else:  #*
-                    complete_item = text[item_start:].strip()  #*
-                
-                complete_items.append(complete_item)  #*
+            complete_items = [] #?
+            for item in numbered_items: #?
+                # 清理每个项目并添加到结果 #?
+                complete_items.append(item.strip()) #?
             
-            print(f"检测到编号列表结构，包含 {len(complete_items)} 个完整项目")  #*
-            return complete_items  #*
+            print(f"检测到编号列表结构，包含 {len(complete_items)} 个完整项目") #?
+            return complete_items #?
         
         # 检查是否包含其他列表标记（如•, -, * 等）
         list_markers = [r'•\s+', r'-\s+', r'\*\s+', r'·\s+']
@@ -507,24 +498,24 @@ class TextSegmentOptimizer:
                 # 如果有列表结构，将每个列表项作为一个片段
                 segments.extend(list_items)
                 print(f"使用列表结构分割，得到 {len(list_items)} 个片段")
-                for i, item in enumerate(list_items):
-                    print(f"  列表项 {i+1}: {item[:50]}{'...' if len(item) > 50 else ''}")  #*
+                for i, item in enumerate(list_items): #?
+                    print(f"  列表项 {i+1}: {item[:50]}{'...' if len(item) > 50 else ''}") #?
                 
-                # 对较长的列表项进行进一步分割  #*
-                refined_segments = []  #*
-                for item in list_items:  #*
-                    if self.estimate_audio_duration(item) > self.max_audio_duration:  #*
-                        # 递归调用LLM分割  #*
-                        sub_segments = self.segment_chinese_text_with_llm(item)  #*
-                        refined_segments.extend(sub_segments)  #*
-                    else:  #*
-                        refined_segments.append(item)  #*
+                # 对较长的列表项进行进一步分割 #?
+                refined_segments = [] #?
+                for item in list_items: #?
+                    if self.estimate_audio_duration(item) > self.max_audio_duration: #?
+                        # 递归调用LLM分割 #?
+                        sub_segments = self.segment_chinese_text_with_llm(item) #?
+                        refined_segments.extend(sub_segments) #?
+                    else: #?
+                        refined_segments.append(item) #?
                 
-                if len(refined_segments) > len(list_items):  #*
-                    print(f"列表项内容较长，进一步分割得到 {len(refined_segments)} 个片段")  #*
-                    return refined_segments  #*
+                if len(refined_segments) > len(list_items): #?
+                    print(f"列表项内容较长，进一步分割得到 {len(refined_segments)} 个片段") #?
+                    return refined_segments #?
                     
-                return segments  #*
+                return segments #?
             
             # 计算整个文本的估计时长
             total_estimated_duration = self.estimate_audio_duration(text_to_process)
@@ -542,6 +533,7 @@ class TextSegmentOptimizer:
             - 明显的语义单元边界（如短语之间）
             3. 在满足上述两点的前提下，片段应尽可能接近22字上限
             4. 严禁在词组内部或破坏语义完整性的位置分割
+            5. 保留原始新闻序号
 
             示例说明：
             ✓ "北电数智积极参与AI行业相关标准制定，" (正确：在逗号处分割，接近字数上限)
@@ -966,29 +958,31 @@ class LongNewsProcessor:
                 ]  #?
                 audio_duration = float(subprocess.check_output(cmd_probe).decode('utf-8').strip())  #?
                 
-                # 如果音频超过5秒，进行倍速处理  #?
+                # 如果音频超过5秒，进行时间拉伸处理  #?
                 if audio_duration > 5.0:  #?
-                    speed_factor = audio_duration / 4.95  # 预留0.05秒余量  #?
+                    # 计算需要的时间比率  #?
+                    time_ratio = 4.95 / audio_duration  # 预留0.05秒余量  #?
                     temp_audio_path = f"{audio_path}_temp.mp3"  #?
                     
+                    # 使用rubberband滤镜，更好地保持音色  #?
                     cmd_speed = [  #?
                         'ffmpeg', '-y',  #?
                         '-i', audio_path,  #?
-                        '-filter:a', f"atempo={speed_factor}",  #?
+                        '-filter:a', f"rubberband=tempo={1/time_ratio}:pitch=1",  #?
                         '-vn', temp_audio_path  #?
                     ]  #?
                     
-                    print(f"音频时长为 {audio_duration:.2f}秒，超过5秒，调整速度为 {speed_factor:.2f}倍")  #?
+                    print(f"音频时长为 {audio_duration:.2f}秒，超过5秒，使用rubberband时间拉伸到4.95秒")  #?
                     subprocess.run(cmd_speed, capture_output=True, text=True)  #?
                     
                     # 使用调整后的音频  #?
                     if os.path.exists(temp_audio_path):  #?
                         audio_path = temp_audio_path  #?
                 else:  #?
-                    print(f"音频时长为 {audio_duration:.2f}秒，无需调整速度")  #?
+                    print(f"音频时长为 {audio_duration:.2f}秒，无需调整时长")  #?
             except Exception as e:  #?
-                print(f"检查音频时长出错，跳过速度调整: {e}")  #?
-            
+                print(f"检查音频时长出错，跳过时间调整: {e}")  #?
+                
             # 使用ffmpeg合并音频和视频，并裁剪视频长度  #?
             cmd = [  #?
                 'ffmpeg', '-y',  #?
