@@ -157,18 +157,16 @@ class WechatMessageTool(BaseTool):
 
                     # 删除旧的 output 目录（如果存在）
                     # 注意：这里假定 output 目录位于项目根目录下
-                    old_output_dir = Path("Desktop/PythonProject/deepseek_ai_news_crew/output")
+                    home_dir = Path.home()
+                    old_output_dir = home_dir / "Desktop" / "PythonProject" / "deepseek_ai_news_crew" / "output"
+                    
+                    print(f"尝试删除的目录路径: {old_output_dir}")    
                     if old_output_dir.exists() and old_output_dir.is_dir():
-                        logger.info(f"检测到旧的 output 目录: {old_output_dir}. 正在删除...")
-                        try:
-                            shutil.rmtree(old_output_dir)
-                            logger.info("旧的 output 目录删除成功。")
-                        except Exception as e:
-                            logger.error(f"删除旧的 output 目录失败: {e}")
-                            # 根据需要处理删除失败的情况，这里选择记录错误并继续
+                        shutil.rmtree(old_output_dir)
+                        print("旧的 output 目录删除成功。")
                     else:
-                        logger.info("未检测到旧的 output 目录，跳过删除。")
-
+                        print("未检测到旧的 output 目录，跳过删除。")              
+                                                                            
                     # 调用aigec.V2.main中的generate_news_video生成视频
                     generator = NewsVideoGenerator(output_dir=str(outputs_dir))
                     result = generator.generate_news_video(
