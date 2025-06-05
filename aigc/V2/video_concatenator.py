@@ -178,9 +178,9 @@ class VideoConcatenator:
                     '-i', file_path,
                     '-c:v', 'libx264',  # 使用H.264编码
                     '-preset', 'medium', # 编码速度和质量的平衡
-                    '-crf', '18',       # 高质量
+                    '-crf', '35',       # 中质量
                     '-c:a', 'aac',      # AAC音频编码
-                    '-b:a', '192k',     # 音频比特率
+                    '-b:a', '96k',     # 音频比特率
                     '-vsync', 'cfr',    # 恒定帧率
                     '-movflags', '+faststart',  # 优化Web播放
                     '-af', 'aresample=async=1000',  # 处理音频同步问题
@@ -316,7 +316,7 @@ class VideoConcatenator:
 
 def main():
     # ====== 你可以在这里修改参数 ======
-    search_dir = "/home/taotao/Desktop/PythonProject/deepseek_ai_news_crew/aigc/output/long_news/final_videos"  # 搜索目录
+    search_dir = "/home/taotao/Desktop/PythonProject/deepseek_ai_news_crew/output/long_news/final_videos"  # 搜索目录
     output_dir = "output/concatenated"     # 输出目录
     output_filename = None                 # 输出文件名（None为自动生成）
     pattern = "*_final.mp4"                # 匹配模式

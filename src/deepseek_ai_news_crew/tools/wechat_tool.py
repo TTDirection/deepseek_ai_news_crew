@@ -12,6 +12,7 @@ from pathlib import Path
 import time
 import asyncio
 from aigc.V2.main import NewsVideoGenerator
+import shutil # Import shutil for directory removal
 
 # 设置日志
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -151,15 +152,32 @@ class WechatMessageTool(BaseTool):
 
                 try:
                     logger.info("开始生成视频文件")
+                    # 清理 Markdown 格式
+                    clean_text = self.clean_markdown(clean_content)
+
+                    # 删除旧的 output 目录（如果存在）
+                    # 注意：这里假定 output 目录位于项目根目录下
+                    old_output_dir = Path("Desktop/PythonProject/deepseek_ai_news_crew/output")
+                    if old_output_dir.exists() and old_output_dir.is_dir():
+                        logger.info(f"检测到旧的 output 目录: {old_output_dir}. 正在删除...")
+                        try:
+                            shutil.rmtree(old_output_dir)
+                            logger.info("旧的 output 目录删除成功。")
+                        except Exception as e:
+                            logger.error(f"删除旧的 output 目录失败: {e}")
+                            # 根据需要处理删除失败的情况，这里选择记录错误并继续
+                    else:
+                        logger.info("未检测到旧的 output 目录，跳过删除。")
+
                     # 调用aigec.V2.main中的generate_news_video生成视频
                     generator = NewsVideoGenerator(output_dir=str(outputs_dir))
                     result = generator.generate_news_video(
-                        news_text=clean_content,
+                        news_text=clean_text,
                         output_filename=video_file.name, # 只传递文件名，让生成器处理路径
                         use_multiprocessing=True, # 参考示例开启多进程
                         max_workers=6, # 参考示例设置最大进程数
-                        compress_video=True,     # 启用视频压缩
-                        target_size_mb=20        # 压缩目标大小为20MB
+                        compress_video=True     # 启用视频压缩
+                        
                     )
 
                     output_path = result.get('concatenation', {}).get('output_path')

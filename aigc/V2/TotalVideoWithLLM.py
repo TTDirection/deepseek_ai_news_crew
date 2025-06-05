@@ -20,40 +20,40 @@ def estimate_audio_duration_global(text: str, estimated_chars_per_second: float)
 def merge_audio_video_global(audio_path: str, video_path: str, output_path: str) -> str:
     """全局版本的音视频合并函数"""
     try:
-        # 检查音频时长是否超过5秒  #?
-        try:  #?
-            cmd_probe = [  #?
-                'ffprobe', '-v', 'error',  #?
-                '-show_entries', 'format=duration',  #?
-                '-of', 'default=noprint_wrappers=1:nokey=1',  #?
-                audio_path  #?
-            ]  #?
-            audio_duration = float(subprocess.check_output(cmd_probe).decode('utf-8').strip())  #?
+        # 检查音频时长是否超过5秒  #
+        try:  #
+            cmd_probe = [  #
+                'ffprobe', '-v', 'error',  #
+                '-show_entries', 'format=duration',  #
+                '-of', 'default=noprint_wrappers=1:nokey=1',  #
+                audio_path  #
+            ]  #
+            audio_duration = float(subprocess.check_output(cmd_probe).decode('utf-8').strip())  #
             
-            # 如果音频超过5秒，进行时间拉伸处理  #?
-            if audio_duration > 5.0:  #?
-                # 计算需要的时间比率  #?
-                time_ratio = 4.95 / audio_duration  # 预留0.05秒余量  #?
-                temp_audio_path = f"{audio_path}_temp.mp3"  #?
+            # 如果音频超过5秒，进行时间拉伸处理  #
+            if audio_duration > 5.0:  #
+                # 计算需要的时间比率  #
+                time_ratio = 4.95 / audio_duration  # 预留0.05秒余量  #
+                temp_audio_path = f"{audio_path}_temp.mp3"  #
                 
-                # 使用rubberband滤镜，更好地保持音色  #?
-                cmd_speed = [  #?
-                    'ffmpeg', '-y',  #?
-                    '-i', audio_path,  #?
-                    '-filter:a', f"rubberband=tempo={1/time_ratio}:pitch=1",  #?
-                    '-vn', temp_audio_path  #?
-                ]  #?
+                # 使用rubberband滤镜，更好地保持音色  #
+                cmd_speed = [  #
+                    'ffmpeg', '-y',  #
+                    '-i', audio_path,  #
+                    '-filter:a', f"rubberband=tempo={1/time_ratio}:pitch=1",  #
+                    '-vn', temp_audio_path  #
+                ]  #
                 
-                print(f"[进程 {os.getpid()}] 音频时长为 {audio_duration:.2f}秒，超过5秒，使用rubberband时间拉伸到4.95秒")  #?
-                subprocess.run(cmd_speed, capture_output=True, text=True)  #?
+                print(f"[进程 {os.getpid()}] 音频时长为 {audio_duration:.2f}秒，超过5秒，使用rubberband时间拉伸到4.95秒")  #
+                subprocess.run(cmd_speed, capture_output=True, text=True)  #
                 
-                # 使用调整后的音频  #?
-                if os.path.exists(temp_audio_path):  #?
-                    audio_path = temp_audio_path  #?
-            else:  #?
-                print(f"[进程 {os.getpid()}] 音频时长为 {audio_duration:.2f}秒，无需调整时长")  #?
-        except Exception as e:  #?
-            print(f"[进程 {os.getpid()}] 检查音频时长出错，跳过时间调整: {e}")  #?
+                # 使用调整后的音频  #
+                if os.path.exists(temp_audio_path):  #
+                    audio_path = temp_audio_path  #
+            else:  #
+                print(f"[进程 {os.getpid()}] 音频时长为 {audio_duration:.2f}秒，无需调整时长")  #
+        except Exception as e:  #
+            print(f"[进程 {os.getpid()}] 检查音频时长出错，跳过时间调整: {e}")  #
         
         cmd = [
             'ffmpeg', '-y',
@@ -68,10 +68,10 @@ def merge_audio_video_global(audio_path: str, video_path: str, output_path: str)
         print(f"[进程 {os.getpid()}] 正在合并音频和视频: {output_path}")
         result = subprocess.run(cmd, capture_output=True, text=True)
         
-        # 清理临时文件  #?
-        temp_audio_path = f"{audio_path}_temp.mp3"  #?
-        if os.path.exists(temp_audio_path):  #?
-            os.remove(temp_audio_path)  #?
+        # 清理临时文件  #
+        temp_audio_path = f"{audio_path}_temp.mp3"  #
+        if os.path.exists(temp_audio_path):  #
+            os.remove(temp_audio_path)  #
         
         if result.returncode == 0:
             print(f"[进程 {os.getpid()}] 音视频合并成功: {output_path}")
@@ -445,18 +445,18 @@ class TextSegmentOptimizer:
         # 检查是否包含编号列表（如1. xxx 2. xxx）
         # 修改：需要完整匹配每个编号项目和其对应内容
         # 检查是否包含编号列表（如1. xxx 2. xxx）
-        numbered_items_pattern = r'(\d+\.\s*[^\n]+?)(?=\n\d+\.|\n*$)' #?
-        numbered_items = re.findall(numbered_items_pattern, text) #?
+        numbered_items_pattern = r'(\d+\.\s*[^\n]+?)(?=\n\d+\.|\n*$)' #
+        numbered_items = re.findall(numbered_items_pattern, text) #
 
         if numbered_items and len(numbered_items) >= 2:
             # 需要确保我们获取完整的内容，而不仅仅是标题
-            complete_items = [] #?
-            for item in numbered_items: #?
-                # 清理每个项目并添加到结果 #?
-                complete_items.append(item.strip()) #?
+            complete_items = [] #
+            for item in numbered_items: #
+                # 清理每个项目并添加到结果 #
+                complete_items.append(item.strip()) #
             
-            print(f"检测到编号列表结构，包含 {len(complete_items)} 个完整项目") #?
-            return complete_items #?
+            print(f"检测到编号列表结构，包含 {len(complete_items)} 个完整项目") #
+            return complete_items #
         
         # 检查是否包含其他列表标记（如•, -, * 等）
         list_markers = [r'•\s+', r'-\s+', r'\*\s+', r'·\s+']
@@ -498,24 +498,24 @@ class TextSegmentOptimizer:
                 # 如果有列表结构，将每个列表项作为一个片段
                 segments.extend(list_items)
                 print(f"使用列表结构分割，得到 {len(list_items)} 个片段")
-                for i, item in enumerate(list_items): #?
-                    print(f"  列表项 {i+1}: {item[:50]}{'...' if len(item) > 50 else ''}") #?
+                for i, item in enumerate(list_items): #
+                    print(f"  列表项 {i+1}: {item[:50]}{'...' if len(item) > 50 else ''}") #
                 
-                # 对较长的列表项进行进一步分割 #?
-                refined_segments = [] #?
-                for item in list_items: #?
-                    if self.estimate_audio_duration(item) > self.max_audio_duration: #?
-                        # 递归调用LLM分割 #?
-                        sub_segments = self.segment_chinese_text_with_llm(item) #?
-                        refined_segments.extend(sub_segments) #?
-                    else: #?
-                        refined_segments.append(item) #?
+                # 对较长的列表项进行进一步分割 #
+                refined_segments = [] #
+                for item in list_items: #
+                    if self.estimate_audio_duration(item) > self.max_audio_duration: #
+                        # 递归调用LLM分割 #
+                        sub_segments = self.segment_chinese_text_with_llm(item) #
+                        refined_segments.extend(sub_segments) #
+                    else: #
+                        refined_segments.append(item) #
                 
-                if len(refined_segments) > len(list_items): #?
-                    print(f"列表项内容较长，进一步分割得到 {len(refined_segments)} 个片段") #?
-                    return refined_segments #?
+                if len(refined_segments) > len(list_items): #
+                    print(f"列表项内容较长，进一步分割得到 {len(refined_segments)} 个片段") #
+                    return refined_segments #
                     
-                return segments #?
+                return segments #
             
             # 计算整个文本的估计时长
             total_estimated_duration = self.estimate_audio_duration(text_to_process)
@@ -947,71 +947,71 @@ class LongNewsProcessor:
         Returns:
             str: 合并后的视频文件路径
         """
-        try:  #?
-            # 检查音频时长是否超过5秒  #?
-            try:  #?
-                cmd_probe = [  #?
-                    'ffprobe', '-v', 'error',  #?
-                    '-show_entries', 'format=duration',  #?
-                    '-of', 'default=noprint_wrappers=1:nokey=1',  #?
-                    audio_path  #?
-                ]  #?
-                audio_duration = float(subprocess.check_output(cmd_probe).decode('utf-8').strip())  #?
+        try:  #
+            # 检查音频时长是否超过5秒  #
+            try:  #
+                cmd_probe = [  #
+                    'ffprobe', '-v', 'error',  #
+                    '-show_entries', 'format=duration',  #
+                    '-of', 'default=noprint_wrappers=1:nokey=1',  #
+                    audio_path  #
+                ]  #
+                audio_duration = float(subprocess.check_output(cmd_probe).decode('utf-8').strip())  #
                 
-                # 如果音频超过5秒，进行时间拉伸处理  #?
-                if audio_duration > 5.0:  #?
-                    # 计算需要的时间比率  #?
-                    time_ratio = 4.95 / audio_duration  # 预留0.05秒余量  #?
-                    temp_audio_path = f"{audio_path}_temp.mp3"  #?
+                # 如果音频超过5秒，进行时间拉伸处理  #
+                if audio_duration > 5.0:  #
+                    # 计算需要的时间比率  #
+                    time_ratio = 4.95 / audio_duration  # 预留0.05秒余量  #
+                    temp_audio_path = f"{audio_path}_temp.mp3"  #
                     
-                    # 使用rubberband滤镜，更好地保持音色  #?
-                    cmd_speed = [  #?
-                        'ffmpeg', '-y',  #?
-                        '-i', audio_path,  #?
-                        '-filter:a', f"rubberband=tempo={1/time_ratio}:pitch=1",  #?
-                        '-vn', temp_audio_path  #?
-                    ]  #?
+                    # 使用rubberband滤镜，更好地保持音色  #
+                    cmd_speed = [  #
+                        'ffmpeg', '-y',  #
+                        '-i', audio_path,  #
+                        '-filter:a', f"rubberband=tempo={1/time_ratio}:pitch=1",  #
+                        '-vn', temp_audio_path  #
+                    ]  #
                     
-                    print(f"音频时长为 {audio_duration:.2f}秒，超过5秒，使用rubberband时间拉伸到4.95秒")  #?
-                    subprocess.run(cmd_speed, capture_output=True, text=True)  #?
+                    print(f"音频时长为 {audio_duration:.2f}秒，超过5秒，使用rubberband时间拉伸到4.95秒")  #
+                    subprocess.run(cmd_speed, capture_output=True, text=True)  #
                     
-                    # 使用调整后的音频  #?
-                    if os.path.exists(temp_audio_path):  #?
-                        audio_path = temp_audio_path  #?
-                else:  #?
-                    print(f"音频时长为 {audio_duration:.2f}秒，无需调整时长")  #?
-            except Exception as e:  #?
-                print(f"检查音频时长出错，跳过时间调整: {e}")  #?
+                    # 使用调整后的音频  #
+                    if os.path.exists(temp_audio_path):  #
+                        audio_path = temp_audio_path  #
+                else:  #
+                    print(f"音频时长为 {audio_duration:.2f}秒，无需调整时长")  #
+            except Exception as e:  #
+                print(f"检查音频时长出错，跳过时间调整: {e}")  #
                 
-            # 使用ffmpeg合并音频和视频，并裁剪视频长度  #?
-            cmd = [  #?
-                'ffmpeg', '-y',  #?
-                '-i', video_path,  #?
-                '-i', audio_path,  #?
-                '-c:v', 'copy',  #?
-                '-c:a', 'aac',  #?
-                '-shortest',  # 使用最短的流作为输出长度  #?
-                output_path  #?
-            ]  #?
+            # 使用ffmpeg合并音频和视频，并裁剪视频长度  #
+            cmd = [  #
+                'ffmpeg', '-y',  #
+                '-i', video_path,  #
+                '-i', audio_path,  #
+                '-c:v', 'copy',  #
+                '-c:a', 'aac',  #
+                '-shortest',  # 使用最短的流作为输出长度  #
+                output_path  #
+            ]  #
             
-            print(f"正在合并音频和视频: {output_path}")  #?
-            result = subprocess.run(cmd, capture_output=True, text=True)  #?
+            print(f"正在合并音频和视频: {output_path}")  #
+            result = subprocess.run(cmd, capture_output=True, text=True)  #
             
-            # 清理临时文件  #?
-            temp_audio_path = f"{audio_path}_temp.mp3"  #?
-            if os.path.exists(temp_audio_path):  #?
-                os.remove(temp_audio_path)  #?
+            # 清理临时文件  #
+            temp_audio_path = f"{audio_path}_temp.mp3"  #
+            if os.path.exists(temp_audio_path):  #
+                os.remove(temp_audio_path)  #
             
-            if result.returncode == 0:  #?
-                print(f"音视频合并成功: {output_path}")  #?
-                return output_path  #?
-            else:  #?
-                print(f"音视频合并失败: {result.stderr}")  #?
-                return None  #?
+            if result.returncode == 0:  #
+                print(f"音视频合并成功: {output_path}")  #
+                return output_path  #
+            else:  #
+                print(f"音视频合并失败: {result.stderr}")  #
+                return None  #
                     
-        except Exception as e:  #?
-            print(f"音视频合并出错: {e}")  #?
-            return None  #?
+        except Exception as e:  #
+            print(f"音视频合并出错: {e}")  #
+            return None  #
     
     def process_long_news(self, news_text: str, project_name: str = None, calibrate: bool = True,
                          add_subtitles: bool = True, subtitle_style: dict = None, use_multiprocessing: bool = True) -> dict:
