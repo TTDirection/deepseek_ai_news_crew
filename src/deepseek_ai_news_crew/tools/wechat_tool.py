@@ -313,49 +313,56 @@ class WechatMessageTool(BaseTool):
 
             logger.info("文本消息发送成功")
 
-            # 发送MP3文件
-            logger.info(f"上传MP3文件: {mp3_file}")
-            upload_url = f"https://qyapi.weixin.qq.com/cgi-bin/webhook/upload_media?key={webhook_key}&type=file"
+            # 检查是否需要发送媒体文件
+            send_media = os.getenv("SEND_MEDIA", "true").lower() == "true"
+            
+            if send_media:
+                # 发送MP3文件
+                logger.info(f"上传MP3文件: {mp3_file}")
+                upload_url = f"https://qyapi.weixin.qq.com/cgi-bin/webhook/upload_media?key={webhook_key}&type=file"
 
-            with open(mp3_file, 'rb') as f:
-                files = {
-                    'file': (os.path.basename(mp3_file), f)
-                }
-                upload_response = requests.post(upload_url, files=files, timeout=60)
+                with open(mp3_file, 'rb') as f:
+                    files = {
+                        'file': (os.path.basename(mp3_file), f)
+                    }
+                    upload_response = requests.post(upload_url, files=files, timeout=60)
 
-                if upload_response.status_code == 200:
-                    upload_result = upload_response.json()
-                    if upload_result.get("errcode") == 0:
-                        media_id = upload_result.get("media_id")
-                        logger.info(f"文件上传成功，media_id: {media_id}")
+                    if upload_response.status_code == 200:
+                        upload_result = upload_response.json()
+                        if upload_result.get("errcode") == 0:
+                            media_id = upload_result.get("media_id")
+                            logger.info(f"文件上传成功，media_id: {media_id}")
 
-                        file_payload = {
-                            "msgtype": "file",
-                            "file": {
-                                "media_id": media_id
+                            file_payload = {
+                                "msgtype": "file",
+                                "file": {
+                                    "media_id": media_id
+                                }
                             }
-                        }
 
-                        file_response = requests.post(
-                            webhook_url,
-                            headers={"Content-Type": "application/json"},
-                            json=file_payload,
-                            timeout=10
-                        )
+                            file_response = requests.post(
+                                webhook_url,
+                                headers={"Content-Type": "application/json"},
+                                json=file_payload,
+                                timeout=10
+                            )
 
-                        file_result = file_response.json()
-                        if file_result.get("errcode") == 0:
-                            logger.info("语音文件发送成功")
-                            return "文本消息和语音文件发送成功"
+                            file_result = file_response.json()
+                            if file_result.get("errcode") == 0:
+                                logger.info("语音文件发送成功")
+                                return "文本消息和语音文件发送成功"
+                            else:
+                                logger.error(f"语音文件消息发送失败: {file_result}")
+                                return f"文本消息发送成功，但语音文件消息发送失败: {file_result}"
                         else:
-                            logger.error(f"语音文件消息发送失败: {file_result}")
-                            return f"文本消息发送成功，但语音文件消息发送失败: {file_result}"
+                            logger.error(f"上传语音文件失败: {upload_result}")
+                            return f"文本消息发送成功，但上传语音文件失败: {upload_result}"
                     else:
-                        logger.error(f"上传语音文件失败: {upload_result}")
-                        return f"文本消息发送成功，但上传语音文件失败: {upload_result}"
-                else:
-                    logger.error(f"上传语音文件请求失败，状态码: {upload_response.status_code}")
-                    return f"文本消息发送成功，但上传语音文件请求失败，状态码: {upload_response.status_code}"
+                        logger.error(f"上传语音文件请求失败，状态码: {upload_response.status_code}")
+                        return f"文本消息发送成功，但上传语音文件请求失败，状态码: {upload_response.status_code}"
+            else:
+                logger.info("SEND_MEDIA设置为false，跳过发送媒体文件")
+                return "文本消息发送成功（媒体文件发送已禁用）"
 
         except Exception as e:
             logger.error(f"发送企业微信消息时发生错误: {str(e)}")
