@@ -78,6 +78,12 @@ class WechatMessageTool(BaseTool):
                 logger.error("输入内容为空或仅包含空白字符")
                 return "输入内容为空，无法发送到企业微信"
 
+            # 检查是否需要发送到企业微信
+            include_wechat = os.getenv("INCLUDE_WECHAT", "true").lower() == "true"
+            if not include_wechat:
+                logger.info("INCLUDE_WECHAT设置为false，跳过企业微信发送")
+                return "企业微信发送已禁用"
+
             # 如果没有提供webhook_key，则使用环境变量中的值
             if not webhook_key:
                 webhook_key = os.getenv("WECHAT_WEBHOOK_KEY", "8b529e9f-1dc9-4b5c-a60a-1b8d3298acdd")
@@ -140,90 +146,90 @@ class WechatMessageTool(BaseTool):
                 logger.error(f"Outputs目录不可写: {str(e)}")
                 return f"Outputs目录不可写: {str(e)}"
 
-            # 检查是否需要生成视频
-            generate_video = os.getenv("GENERATE_VIDEO", "false").lower() == "true"
+            # 检查是否需要发送媒体文件
+            send_media = os.getenv("SEND_MEDIA", "true").lower() == "true"
             
-            if generate_video:
-                # 生成视频文件
-                today = datetime.now()
-                date_str = today.strftime("%Y年%m月%d日")
-                video_file = outputs_dir / f"【AI日报】{date_str}.mp4"
-                logger.info(f"将生成视频文件: {video_file}")
+            if send_media:
+                # 检查是否需要生成视频
+                generate_video = os.getenv("GENERATE_VIDEO", "false").lower() == "true"
+                
+                if generate_video:
+                    # 生成视频文件
+                    today = datetime.now()
+                    date_str = today.strftime("%Y年%m月%d日")
+                    video_file = outputs_dir / f"【AI日报】{date_str}.mp4"
+                    logger.info(f"将生成视频文件: {video_file}")
 
-                try:
-                    logger.info("开始生成视频文件")
-                    # 清理 Markdown 格式
-                    clean_text = self.clean_markdown(clean_content)
+                    try:
+                        logger.info("开始生成视频文件")
+                        # 清理 Markdown 格式
+                        clean_text = self.clean_markdown(clean_content)
 
-                    # 删除旧的 output 目录（如果存在）
-                    # 注意：这里假定 output 目录位于项目根目录下
-                    home_dir = Path.home()
-                    old_output_dir = home_dir / "Desktop" / "PythonProject" / "deepseek_ai_news_crew" / "output"
-                    
-                    print(f"尝试删除的目录路径: {old_output_dir}")    
-                    if old_output_dir.exists() and old_output_dir.is_dir():
-                        shutil.rmtree(old_output_dir)
-                        print("旧的 output 目录删除成功。")
-                    else:
-                        print("未检测到旧的 output 目录，跳过删除。")              
-                                                                            
-                    # 调用aigec.V2.main中的generate_news_video生成视频
-                    generator = NewsVideoGenerator(output_dir=str(outputs_dir))
-                    result = generator.generate_news_video(
-                        news_text=clean_text,
-                        output_filename=video_file.name, # 只传递文件名，让生成器处理路径
-                        use_multiprocessing=True, # 参考示例开启多进程
-                        max_workers=6, # 参考示例设置最大进程数
-                        compress_video=True     # 启用视频压缩
+                        # 删除旧的 output 目录（如果存在）
+                        home_dir = Path.home()
+                        old_output_dir = home_dir / "Desktop" / "PythonProject" / "deepseek_ai_news_crew" / "output"
                         
-                    )
+                        print(f"尝试删除的目录路径: {old_output_dir}")    
+                        if old_output_dir.exists() and old_output_dir.is_dir():
+                            shutil.rmtree(old_output_dir)
+                            print("旧的 output 目录删除成功。")
+                        else:
+                            print("未检测到旧的 output 目录，跳过删除。")              
+                                                                                
+                        # 调用aigec.V2.main中的generate_news_video生成视频
+                        generator = NewsVideoGenerator(output_dir=str(outputs_dir))
+                        result = generator.generate_news_video(
+                            news_text=clean_text,
+                            output_filename=video_file.name,
+                            use_multiprocessing=True,
+                            max_workers=6,
+                            compress_video=True
+                        )
 
-                    output_path = result.get('concatenation', {}).get('output_path')
+                        output_path = result.get('concatenation', {}).get('output_path')
 
-                    if output_path and os.path.exists(output_path):
-                        logger.info(f"成功生成视频文件: {output_path}")
-                        # 更新mp3_file变量为视频文件路径
-                        mp3_file = Path(output_path)
-                        
-                        # 等待文件完全写入
-                        max_wait = 2000  # 最大等待2000秒
-                        wait_interval = 1  # 每1秒检查一次
-                        waited = 0
-                        last_size = -1
-                        stable_count = 0
-                        
-                        while waited < max_wait:
-                            current_size = os.path.getsize(output_path)
-                            if current_size > 0:
-                                if current_size == last_size:
-                                    stable_count += 1
-                                    if stable_count >= 3:  # 连续3次大小相同，认为文件已写入完成
-                                        logger.info(f"视频文件已完全生成，大小: {current_size} 字节")
-                                        break
-                                else:
-                                    stable_count = 0
-                                    logger.info(f"视频文件正在生成中，当前大小: {current_size} 字节")
-                            last_size = current_size
-                            time.sleep(wait_interval)
-                            waited += wait_interval
-                            logger.info(f"等待视频文件生成完成... ({waited:.1f}秒)")
-                        
-                        if waited >= max_wait:
-                            logger.error("等待视频文件生成超时")
-                            return "文本消息准备发送，但视频文件生成超时"
-                    else:
-                        logger.error("生成视频文件失败")
-                        return "文本消息准备发送，但生成视频文件失败"
-                except Exception as e:
-                    logger.error(f"生成视频文件失败: {str(e)}")
-                    return f"文本消息准备发送，但生成视频文件失败: {str(e)}"
-            else:
-                # 如果没有提供MP3文件，自动生成
-                if not mp3_file:
+                        if output_path and os.path.exists(output_path):
+                            logger.info(f"成功生成视频文件: {output_path}")
+                            mp3_file = Path(output_path)
+                            
+                            # 等待文件完全写入
+                            max_wait = 2000
+                            wait_interval = 1
+                            waited = 0
+                            last_size = -1
+                            stable_count = 0
+                            
+                            while waited < max_wait:
+                                current_size = os.path.getsize(output_path)
+                                if current_size > 0:
+                                    if current_size == last_size:
+                                        stable_count += 1
+                                        if stable_count >= 3:
+                                            logger.info(f"视频文件已完全生成，大小: {current_size} 字节")
+                                            break
+                                    else:
+                                        stable_count = 0
+                                        logger.info(f"视频文件正在生成中，当前大小: {current_size} 字节")
+                                last_size = current_size
+                                time.sleep(wait_interval)
+                                waited += wait_interval
+                                logger.info(f"等待视频文件生成完成... ({waited:.1f}秒)")
+                            
+                            if waited >= max_wait:
+                                logger.error("等待视频文件生成超时")
+                                return "文本消息准备发送，但视频文件生成超时"
+                        else:
+                            logger.error("生成视频文件失败")
+                            return "文本消息准备发送，但生成视频文件失败"
+                    except Exception as e:
+                        logger.error(f"生成视频文件失败: {str(e)}")
+                        return f"文本消息准备发送，但生成视频文件失败: {str(e)}"
+                else:
+                    # 生成语音文件
                     today = datetime.now()
                     date_str = today.strftime("%Y年%m月%d日")
                     mp3_file = outputs_dir / f"【AI日报】{date_str}.wav"
-                    logger.info(f"未提供语音文件，将生成: {mp3_file}")
+                    logger.info(f"将生成语音文件: {mp3_file}")
 
                     try:
                         logger.info("开始生成语音文件")
@@ -248,12 +254,11 @@ class WechatMessageTool(BaseTool):
                         
                         if output_path and os.path.exists(output_path):
                             logger.info(f"成功生成WAV文件: {output_path}")
-                            # 更新mp3_file变量为wav文件路径
                             mp3_file = Path(output_path)
                             
                             # 等待文件完全写入
-                            max_wait = 300  # 最大等待300秒
-                            wait_interval = 1  # 每1秒检查一次
+                            max_wait = 300
+                            wait_interval = 1
                             waited = 0
                             last_size = -1
                             stable_count = 0
@@ -263,7 +268,7 @@ class WechatMessageTool(BaseTool):
                                 if current_size > 0:
                                     if current_size == last_size:
                                         stable_count += 1
-                                        if stable_count >= 3:  # 连续3次大小相同，认为文件已写入完成
+                                        if stable_count >= 3:
                                             logger.info(f"WAV文件已完全生成，大小: {current_size} 字节")
                                             break
                                     else:
@@ -284,41 +289,13 @@ class WechatMessageTool(BaseTool):
                         logger.error(f"生成语音文件失败: {str(e)}")
                         return f"文本消息准备发送，但生成语音文件失败: {str(e)}"
 
-            # 验证语音文件是否存在
-            if not os.path.exists(mp3_file):
-                logger.error(f"语音文件不存在: {mp3_file}")
-                return f"文本消息准备发送，但语音文件不存在: {mp3_file}"
+                # 验证媒体文件是否存在
+                if not os.path.exists(mp3_file):
+                    logger.error(f"媒体文件不存在: {mp3_file}")
+                    return f"文本消息准备发送，但媒体文件不存在: {mp3_file}"
 
-            # 构建payload - 使用markdown格式
-            payload = {
-                "msgtype": "markdown",
-                "markdown": {
-                    "content": clean_content 
-                }
-            }
-
-            # 发送文本消息
-            logger.info("发送文本消息到企业微信")
-            response = requests.post(
-                webhook_url,
-                headers={"Content-Type": "application/json"},
-                json=payload,
-                timeout=10
-            )
-
-            result = response.json()
-            if result.get("errcode") != 0:
-                logger.error(f"文本消息发送失败: {result}")
-                return f"文本消息发送失败: {result}"
-
-            logger.info("文本消息发送成功")
-
-            # 检查是否需要发送媒体文件
-            send_media = os.getenv("SEND_MEDIA", "true").lower() == "true"
-            
-            if send_media:
-                # 发送MP3文件
-                logger.info(f"上传MP3文件: {mp3_file}")
+                # 发送媒体文件
+                logger.info(f"上传媒体文件: {mp3_file}")
                 upload_url = f"https://qyapi.weixin.qq.com/cgi-bin/webhook/upload_media?key={webhook_key}&type=file"
 
                 with open(mp3_file, 'rb') as f:
@@ -349,20 +326,42 @@ class WechatMessageTool(BaseTool):
 
                             file_result = file_response.json()
                             if file_result.get("errcode") == 0:
-                                logger.info("语音文件发送成功")
-                                return "文本消息和语音文件发送成功"
+                                logger.info("媒体文件发送成功")
+                                return "文本消息和媒体文件发送成功"
                             else:
-                                logger.error(f"语音文件消息发送失败: {file_result}")
-                                return f"文本消息发送成功，但语音文件消息发送失败: {file_result}"
+                                logger.error(f"媒体文件消息发送失败: {file_result}")
+                                return f"文本消息发送成功，但媒体文件消息发送失败: {file_result}"
                         else:
-                            logger.error(f"上传语音文件失败: {upload_result}")
-                            return f"文本消息发送成功，但上传语音文件失败: {upload_result}"
+                            logger.error(f"上传媒体文件失败: {upload_result}")
+                            return f"文本消息发送成功，但上传媒体文件失败: {upload_result}"
                     else:
-                        logger.error(f"上传语音文件请求失败，状态码: {upload_response.status_code}")
-                        return f"文本消息发送成功，但上传语音文件请求失败，状态码: {upload_response.status_code}"
-            else:
-                logger.info("SEND_MEDIA设置为false，跳过发送媒体文件")
-                return "文本消息发送成功（媒体文件发送已禁用）"
+                        logger.error(f"上传媒体文件请求失败，状态码: {upload_response.status_code}")
+                        return f"文本消息发送成功，但上传媒体文件请求失败，状态码: {upload_response.status_code}"
+
+            # 构建payload - 使用markdown格式
+            payload = {
+                "msgtype": "markdown",
+                "markdown": {
+                    "content": clean_content 
+                }
+            }
+
+            # 发送文本消息
+            logger.info("发送文本消息到企业微信")
+            response = requests.post(
+                webhook_url,
+                headers={"Content-Type": "application/json"},
+                json=payload,
+                timeout=10
+            )
+
+            result = response.json()
+            if result.get("errcode") != 0:
+                logger.error(f"文本消息发送失败: {result}")
+                return f"文本消息发送失败: {result}"
+
+            logger.info("文本消息发送成功")
+            return "文本消息发送成功" + ("（媒体文件发送已禁用）" if not send_media else "")
 
         except Exception as e:
             logger.error(f"发送企业微信消息时发生错误: {str(e)}")
